@@ -1,5 +1,6 @@
 mod app;
 mod summary;
+mod mobile_transaction;
 
 use app::App;
 use leptos::prelude::*;

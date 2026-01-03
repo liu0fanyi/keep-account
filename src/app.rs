@@ -326,6 +326,43 @@ fn TransactionView(
     set_selected_year: WriteSignal<i32>,
     set_selected_month: WriteSignal<i32>,
 ) -> impl IntoView {
+    view! {
+        <div class="transaction-view-wrapper">
+            // 移动端视图 - 通过CSS媒体查询控制显示
+            <div class="mobile-only">
+                <crate::mobile_transaction::MobileTransactionView
+                    categories=categories
+                    selected_year=selected_year
+                    selected_month=selected_month
+                />
+            </div>
+            
+            // 桌面端视图 - 通过CSS媒体查询控制显示
+            <div class="desktop-only">
+                <DesktopTransactionView
+                    categories=categories
+                    selected_year=selected_year
+                    selected_month=selected_month
+                    set_selected_year=set_selected_year
+                    set_selected_month=set_selected_month
+                />
+            </div>
+        </div>
+    }
+}
+
+// ============================================================================
+// Desktop Transaction View Component
+// ============================================================================
+
+#[component]
+fn DesktopTransactionView(
+    categories: ReadSignal<Vec<Category>>,
+    selected_year: ReadSignal<i32>,
+    selected_month: ReadSignal<i32>,
+    set_selected_year: WriteSignal<i32>,
+    set_selected_month: WriteSignal<i32>,
+) -> impl IntoView {
     let (transactions, set_transactions) = create_signal(Vec::<TransactionWithCategory>::new());
     let (monthly_summary, set_monthly_summary) = create_signal(None::<MonthlySummary>);
     let (installment_details, set_installment_details) = create_signal(Vec::<InstallmentDetail>::new());
