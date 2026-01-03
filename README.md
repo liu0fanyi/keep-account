@@ -1,7 +1,98 @@
-# Tauri + Leptos
+# Keep Accounts
 
-This template should help get you started developing with Tauri and Leptos.
+一个使用 Tauri 2.0 + Leptos 构建的个人记账应用。
 
-## Recommended IDE Setup
+## 功能特性
 
-[VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+- ✅ **分类管理**：自定义收入和支出分类，支持图标
+- ✅ **交易记录**：按月记录收支，自动计算月度汇总
+- ✅ **分期管理**：跟踪分期付款，管理每期支付状态
+- ✅ **账目汇总**：按月分组显示所有交易，统计总收入、总支出和结余
+- 🔜 **数据导出**：支持导出为 CSV/JSON 格式（计划中）
+- 🔜 **图表统计**：可视化收支趋势（计划中）
+
+## 技术栈
+
+- **前端框架**: Leptos 0.8 (CSR)
+- **后端框架**: Tauri 2.0
+- **数据库**: libSQL (嵌入式 SQLite)
+- **语言**: Rust
+- **样式**: CSS (支持深色模式)
+
+## 安装使用
+
+### 从 Release 安装
+
+访问 [Releases](https://github.com/yourusername/keep-accounts/releases) 页面下载对应平台的安装包：
+
+- **Windows**: 下载 `.exe` 安装包并运行
+- **Android**: 下载 `.apk` 文件并安装
+
+### 从源码构建
+
+详见 [BUILD.md](./BUILD.md)
+
+## 开发
+
+### 环境要求
+
+- Rust 1.70+
+- Node.js LTS
+- Trunk
+
+### 开发模式
+
+```bash
+# 安装依赖
+cargo install --locked trunk
+
+# 启动开发服务器
+cargo tauri dev
+```
+
+应用会在 `http://localhost:1420` 启动。
+
+### 项目结构
+
+```
+keep-accounts/
+├── src/              # 前端源码 (Leptos)
+│   ├── app.rs       # 主应用组件
+│   ├── summary.rs   # 汇总视图
+│   └── main.rs      # 入口文件
+├── src-tauri/       # 后端源码 (Tauri)
+│   ├── src/
+│   │   ├── db.rs                    # 数据库管理
+│   │   ├── models.rs                # 数据模型
+│   │   ├── repository/              # 数据访问层
+│   │   │   ├── category_repo.rs
+│   │   │   ├── transaction_repo.rs
+│   │   │   └── installment_repo.rs
+│   │   └── lib.rs                   # Tauri 命令
+│   └── tauri.conf.json             # Tauri 配置
+├── styles.css       # 应用样式
+├── Cargo.toml       # Rust 依赖配置
+└── BUILD.md         # 构建说明
+```
+
+## 数据存储
+
+应用使用 libSQL 嵌入式数据库，数据存储位置：
+
+- **Windows**: `%LOCALAPPDATA%\com.keep-accounts.app\`
+- **Linux**: `~/.local/share/com.keep-accounts.app/`
+- **macOS**: `~/Library/Application Support/com.keep-accounts.app/`
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 许可证
+
+MIT License
+
+## 相关链接
+
+- [Tauri 文档](https://v2.tauri.app/)
+- [Leptos 文档](https://leptos.dev/)
+- [libSQL 文档](https://libsql.org/)
