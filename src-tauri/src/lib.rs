@@ -248,8 +248,10 @@ pub fn run() {
             // Manage database state
             app.manage(AppState { db: db_state });
 
-            // Set window size based on monitor DPI
+
+            // Set window size based on monitor DPI (desktop only)
             // Phone screen: 2400x1080 (height x width) = aspect ratio 2.22:1
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(scale_factor) = window.scale_factor() {
                     eprintln!("Monitor scale factor: {}", scale_factor);
@@ -266,8 +268,9 @@ pub fn run() {
                     
                     eprintln!("Setting window size to: {}x{} (logical pixels)", logical_width, logical_height);
                     
-                    // Set window size
-                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                    // Set window size (desktop platforms only)
+                    use tauri::Size;
+                    let _ = window.set_size(Size::Logical(tauri::LogicalSize {
                         width: logical_width,
                         height: logical_height,
                     }));
