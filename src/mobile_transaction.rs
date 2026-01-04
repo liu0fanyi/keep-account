@@ -8,8 +8,14 @@ extern "C" {
     async fn invoke(cmd: &str, args: JsValue) -> JsValue;
 }
 
-// Import Category from app module to avoid duplication
-use crate::app::Category;
+// Import types from app module
+use crate::app::{Category, TransactionWithCategory};
+
+#[derive(Clone, Copy, PartialEq)]
+enum MobileView {
+    List,
+    Form,
+}
 
 /// 移动端记账组件
 #[component]
@@ -17,6 +23,168 @@ pub fn MobileTransactionView(
     categories: ReadSignal<Vec<Category>>,
     selected_year: ReadSignal<i32>,
     selected_month: ReadSignal<i32>,
+) -> impl IntoView {
+    // 当前视图：列表或表单
+    let current_view = RwSignal::new(MobileView::List);
+    
+    // 交易列表
+    let transactions = RwSignal::new(Vec::<TransactionWithCategory>::new());
+    
+    // 加载交易列表
+    let load_transactions = move || {
+        let year = selected_year.get_untracked();
+        let month = selected_month.get_untracked();
+        
+        spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "year": year,
+                "month": month,
+            })).unwrap();
+            
+            let result = invoke("get_transactions_by_month", args).await;
+            if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result) {
+                transactions.set(txs);
+            }
+        });
+    };
+    
+    // 初始加载
+    create_effect(move |_| {
+        let _year = selected_year.get();
+        let _month = selected_month.get();
+        load_transactions();
+    });
+    
+    view! {
+        <div class="mobile-transaction-view">
+            <Show
+                when=move || current_view.get() == MobileView::List
+                fallback=move || view! {
+                    <MobileTransactionForm
+                        categories=categories
+                        selected_year=selected_year
+                        selected_month=selected_month
+                        on_success=move || {
+                            current_view.set(MobileView::List);
+                            load_transactions();
+                        }
+                        on_cancel=move || current_view.set(MobileView::List)
+                    />
+                }
+            >
+                <MobileTransactionList
+                    transactions=transactions
+                    selected_year=selected_year
+                    selected_month=selected_month
+                />
+                
+                // 浮动操作按钮
+                <button
+                    class="mobile-fab"
+                    on:click=move |_| current_view.set(MobileView::Form)
+                >
+                    "+"
+                </button>
+            </Show>
+        </div>
+    }
+}
+
+/// 移动端交易列表
+#[component]
+fn MobileTransactionList(
+    transactions: RwSignal<Vec<TransactionWithCategory>>,
+    selected_year: ReadSignal<i32>,
+    selected_month: ReadSignal<i32>,
+) -> impl IntoView {
+    let delete_transaction = move |tx_id: i64| {
+        let year = selected_year.get_untracked();
+        let month = selected_month.get_untracked();
+        
+        spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "id": tx_id
+            })).unwrap();
+            
+            let _result = invoke("delete_transaction", args).await;
+            
+            // Reload transactions after delete
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "year": year,
+                "month": month,
+            })).unwrap();
+            
+            let result = invoke("get_transactions_by_month", args).await;
+            if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result) {
+                transactions.set(txs);
+            }
+        });
+    };
+    
+    view! {
+        <div class="mobile-list-view">
+            <div class="mobile-list-header">
+                <h2>{move || format!("{}年{:02}月", selected_year.get(), selected_month.get())}</h2>
+            </div>
+            
+            <div class="mobile-list-content">
+                <Show
+                    when=move || !transactions.get().is_empty()
+                    fallback=|| view! {
+                        <div class="mobile-empty-state">
+                            <div class="mobile-empty-icon">"📝"</div>
+                            <div class="mobile-empty-text">"暂无记账记录"</div>
+                            <div class="mobile-empty-hint">"点击右下角 + 按钮开始记账"</div>
+                        </div>
+                    }
+                >
+                    <For
+                        each=move || transactions.get()
+                        key=|tx| tx.id
+                        let:tx
+                    >
+                        <div class="mobile-transaction-item">
+                            <div class="mobile-tx-icon">
+                                {tx.category_icon.clone().unwrap_or_else(|| "📦".to_string())}
+                            </div>
+                            <div class="mobile-tx-info">
+                                <div class="mobile-tx-category">{tx.category_name.clone()}</div>
+                                {tx.note.clone().map(|n| view! {
+                                    <div class="mobile-tx-note">{n}</div>
+                                })}
+                                <div class="mobile-tx-date">{tx.transaction_date.clone()}</div>
+                            </div>
+                            <div class=move || {
+                                if tx.amount >= 0.0 {
+                                    "mobile-tx-amount positive"
+                                } else {
+                                    "mobile-tx-amount negative"
+                                }
+                            }>
+                                {format!("{:+.2}", tx.amount)}
+                            </div>
+                            <button
+                                class="mobile-tx-delete"
+                                on:click=move |_| delete_transaction(tx.id)
+                            >
+                                "×"
+                            </button>
+                        </div>
+                    </For>
+                </Show>
+            </div>
+        </div>
+    }
+}
+
+/// 移动端记账表单
+#[component]
+fn MobileTransactionForm(
+    categories: ReadSignal<Vec<Category>>,
+    selected_year: ReadSignal<i32>,
+    selected_month: ReadSignal<i32>,
+    on_success: impl Fn() + 'static + Copy,
+    on_cancel: impl Fn() + 'static,
 ) -> impl IntoView {
     // 选中的分类
     let selected_category_id = RwSignal::new(0i64);
@@ -119,25 +287,33 @@ pub fn MobileTransactionView(
                 }
             }
             
-            // 成功：重置表单
+            // 成功：显示消息并在短暂延迟后切换视图
             success_message.set("记账成功！".to_string());
-            amount_display.set("0".to_string());
-            note.set(String::new());
-            selected_category_id.set(0);
-            show_note_input.set(false);
             
-            // 2秒后清除成功消息
+            // 延迟后调用成功回调
             set_timeout(
                 move || {
-                    success_message.set(String::new());
+                    on_success();
                 },
-                std::time::Duration::from_secs(2),
+                std::time::Duration::from_millis(800),
             );
         });
     };
 
     view! {
-        <div class="mobile-transaction-view">
+        <div class="mobile-form-view">
+            // 顶部：标题和取消按钮
+            <div class="mobile-form-header">
+                <button 
+                    class="mobile-form-cancel"
+                    on:click=move |_| on_cancel()
+                >
+                    "←"
+                </button>
+                <h2>"新建记账"</h2>
+                <div class="mobile-form-spacer"></div>
+            </div>
+            
             // 顶部：消息提示
             {move || {
                 let error = error_message.get();

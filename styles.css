@@ -148,7 +148,8 @@ button {
   gap: 12px;
 }
 
-input, select {
+input,
+select {
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -156,7 +157,8 @@ input, select {
   font-family: inherit;
 }
 
-input:focus, select:focus {
+input:focus,
+select:focus {
   outline: none;
   border-color: #3498db;
 }
@@ -432,9 +434,12 @@ input:focus, select:focus {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.8;
   }
@@ -762,6 +767,226 @@ input:focus, select:focus {
   max-height: 100vh;
   overflow: hidden;
   background: #f5f5f5;
+  position: relative;
+}
+
+/* 移动端列表视图 */
+.mobile-list-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.mobile-list-header {
+  background: white;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-list-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.mobile-list-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 移动端交易列表项 */
+.mobile-transaction-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  background: white;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.mobile-transaction-item:active {
+  background: #f9f9f9;
+}
+
+.mobile-tx-icon {
+  font-size: 36px;
+}
+
+.mobile-tx-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mobile-tx-category {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.mobile-tx-note {
+  font-size: 13px;
+  color: #7f8c8d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-tx-date {
+  font-size: 12px;
+  color: #95a5a6;
+}
+
+.mobile-tx-amount {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mobile-tx-amount.positive {
+  color: #27ae60;
+}
+
+.mobile-tx-amount.negative {
+  color: #e74c3c;
+}
+
+.mobile-tx-delete {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fee;
+  color: #e74c3c;
+  border: none;
+  font-size: 24px;
+  font-weight: 300;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.mobile-tx-delete:active {
+  background: #fdd;
+  transform: scale(0.95);
+}
+
+/* 空状态 */
+.mobile-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.mobile-empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.mobile-empty-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #7f8c8d;
+  margin-bottom: 8px;
+}
+
+.mobile-empty-hint {
+  font-size: 14px;
+  color: #95a5a6;
+}
+
+/* 浮动操作按钮 (FAB) */
+.mobile-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  font-size: 32px;
+  font-weight: 300;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+}
+
+.mobile-fab:active {
+  transform: scale(0.9);
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
+}
+
+/* 移动端表单视图 */
+.mobile-form-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.mobile-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-form-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+  flex: 1;
+  text-align: center;
+}
+
+.mobile-form-cancel {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: transparent;
+  color: #3498db;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.mobile-form-cancel:active {
+  background: #f0f0f0;
+}
+
+.mobile-form-spacer {
+  width: 40px;
 }
 
 .mobile-section {
@@ -792,6 +1017,7 @@ input:focus, select:focus {
     transform: translateY(-20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -813,7 +1039,9 @@ input:focus, select:focus {
 /* 图标选择区 */
 .mobile-icon-section {
   flex: 1;
+  min-height: 50vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: white;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -821,7 +1049,7 @@ input:focus, select:focus {
 .mobile-icon-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .mobile-icon-btn {
@@ -866,6 +1094,7 @@ input:focus, select:focus {
 .mobile-display-section {
   background: white;
   border-bottom: 1px solid #e0e0e0;
+  padding: 12px 16px;
 }
 
 .mobile-amount-label {
@@ -923,7 +1152,7 @@ input:focus, select:focus {
 /* 确认按钮 */
 .mobile-confirm-btn {
   width: 100%;
-  padding: 16px;
+  padding: 14px;
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
   border: none;
@@ -943,21 +1172,21 @@ input:focus, select:focus {
 /* 数字键盘区 */
 .mobile-keypad-section {
   background: white;
-  padding: 12px;
+  padding: 8px;
   border-top: 1px solid #e0e0e0;
 }
 
 .mobile-keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
   max-width: 400px;
   margin: 0 auto;
 }
 
 .mobile-keypad-btn {
   aspect-ratio: 1;
-  min-height: 60px;
+  min-height: 48px;
   background: #f9f9f9;
   border: 1px solid #ddd;
   border-radius: 12px;
@@ -994,8 +1223,65 @@ input:focus, select:focus {
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
-  .mobile-transaction-view {
+
+  .mobile-transaction-view,
+  .mobile-list-view,
+  .mobile-form-view {
     background: #1a1a1a;
+  }
+
+  .mobile-list-header,
+  .mobile-form-header {
+    background: #2d2d2d;
+    border-color: #3d3d3d;
+  }
+
+  .mobile-list-header h2,
+  .mobile-form-header h2 {
+    color: #ecf0f1;
+  }
+
+  .mobile-form-cancel {
+    color: #3498db;
+  }
+
+  .mobile-form-cancel:active {
+    background: #3d3d3d;
+  }
+
+  .mobile-transaction-item {
+    background: #2d2d2d;
+    border-color: #3d3d3d;
+  }
+
+  .mobile-transaction-item:active {
+    background: #252525;
+  }
+
+  .mobile-tx-category {
+    color: #ecf0f1;
+  }
+
+  .mobile-tx-note,
+  .mobile-tx-date {
+    color: #95a5a6;
+  }
+
+  .mobile-tx-delete {
+    background: #4a1f1f;
+    border-color: #5a2f2f;
+  }
+
+  .mobile-tx-delete:active {
+    background: #5a2f2f;
+  }
+
+  .mobile-empty-text {
+    color: #95a5a6;
+  }
+
+  .mobile-empty-hint {
+    color: #7f8c8d;
   }
 
   .mobile-section-title {
@@ -1097,7 +1383,7 @@ input:focus, select:focus {
   .mobile-only {
     display: block;
   }
-  
+
   .desktop-only {
     display: none;
   }
