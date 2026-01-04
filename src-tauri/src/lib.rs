@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use tauri::State;
 use tauri::Manager;
 
@@ -248,6 +247,34 @@ pub fn run() {
 
             // Manage database state
             app.manage(AppState { db: db_state });
+
+            // Set window size based on monitor DPI
+            // Phone screen: 2400x1080 (height x width) = aspect ratio 2.22:1
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(scale_factor) = window.scale_factor() {
+                    eprintln!("Monitor scale factor: {}", scale_factor);
+                    
+                    // Base logical dimensions (for 100% scaling)
+                    // Target size: 540x1200 to match phone screen proportion
+                    let base_width = 540.0;
+                    let base_height = 1200.0;
+                    
+                    // Adjust for scale factor to get appropriate logical size
+                    // Higher DPI = smaller logical size to maintain physical size
+                    let logical_width = (base_width / scale_factor).round() as f64;
+                    let logical_height = (base_height / scale_factor).round() as f64;
+                    
+                    eprintln!("Setting window size to: {}x{} (logical pixels)", logical_width, logical_height);
+                    
+                    // Set window size
+                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                        width: logical_width,
+                        height: logical_height,
+                    }));
+                } else {
+                    eprintln!("Could not get scale factor, using default size");
+                }
+            }
 
             Ok(())
         })

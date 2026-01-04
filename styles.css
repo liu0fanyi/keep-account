@@ -937,6 +937,58 @@ select:focus {
   box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
 }
 
+/* 底部导航栏 */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 999;
+}
+
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: #7f8c8d;
+}
+
+.mobile-nav-item:active {
+  background: #f5f5f5;
+}
+
+.mobile-nav-icon {
+  font-size: 22px;
+  margin-bottom: 2px;
+}
+
+.mobile-nav-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mobile-nav-item.active {
+  color: #3498db;
+}
+
+.mobile-nav-item.active .mobile-nav-label {
+  font-weight: 600;
+}
+
 /* 移动端表单视图 */
 .mobile-form-view {
   display: flex;
@@ -990,26 +1042,28 @@ select:focus {
 }
 
 .mobile-section {
-  padding: 16px;
+  padding: 8px 16px;
+  flex-shrink: 0;
 }
 
 .mobile-section-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #7f8c8d;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 /* 消息提示 */
 .mobile-message {
-  padding: 12px 16px;
-  margin: 8px 16px;
+  padding: 10px 16px;
+  margin: 6px 16px;
   border-radius: 8px;
   font-weight: 500;
   text-align: center;
   animation: slideDown 0.3s ease-out;
+  flex-shrink: 0;
 }
 
 @keyframes slideDown {
@@ -1038,8 +1092,7 @@ select:focus {
 
 /* 图标选择区 */
 .mobile-icon-section {
-  flex: 1;
-  min-height: 50vh;
+  flex: 3;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: white;
@@ -1050,6 +1103,7 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
+  padding: 12px;
 }
 
 .mobile-icon-btn {
@@ -1057,13 +1111,13 @@ select:focus {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 8px;
+  padding: 10px 6px;
   background: #f9f9f9;
   border: 2px solid transparent;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  min-height: 90px;
+  min-height: 80px;
 }
 
 .mobile-icon-btn:active {
@@ -1077,12 +1131,12 @@ select:focus {
 }
 
 .mobile-icon-emoji {
-  font-size: 32px;
+  font-size: 28px;
   margin-bottom: 4px;
 }
 
 .mobile-icon-label {
-  font-size: 11px;
+  font-size: 10px;
   color: #2c3e50;
   font-weight: 500;
   text-align: center;
@@ -1094,17 +1148,18 @@ select:focus {
 .mobile-display-section {
   background: white;
   border-bottom: 1px solid #e0e0e0;
-  padding: 12px 16px;
+  padding: 8px 16px;
+  flex-shrink: 0;
 }
 
 .mobile-amount-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #7f8c8d;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .mobile-amount-display {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
   color: #2c3e50;
   font-family: 'SF Mono', 'Consolas', monospace;
@@ -1114,7 +1169,8 @@ select:focus {
 .mobile-note-section {
   background: white;
   border-bottom: 1px solid #e0e0e0;
-  padding: 12px 16px;
+  padding: 8px 16px;
+  flex-shrink: 0;
 }
 
 .mobile-note-btn {
@@ -1152,16 +1208,16 @@ select:focus {
 /* 确认按钮 */
 .mobile-confirm-btn {
   width: 100%;
-  padding: 14px;
+  padding: 12px;
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
   border: none;
   border-radius: 12px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
 }
 
 .mobile-confirm-btn:active {
@@ -1174,6 +1230,10 @@ select:focus {
   background: white;
   padding: 8px;
   border-top: 1px solid #e0e0e0;
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mobile-keypad {

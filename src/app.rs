@@ -178,7 +178,7 @@ pub fn App() -> impl IntoView {
 // ============================================================================
 
 #[component]
-fn CategoryManager(
+pub(crate) fn CategoryManager(
     categories: ReadSignal<Vec<Category>>,
     set_categories: WriteSignal<Vec<Category>>,
 ) -> impl IntoView {
@@ -792,7 +792,7 @@ fn DesktopTransactionView(
 // ============================================================================
 
 #[component]
-fn InstallmentManager(
+pub(crate) fn InstallmentManager(
     categories: ReadSignal<Vec<Category>>,
 ) -> impl IntoView {
     let (installments, set_installments) = create_signal(Vec::<InstallmentWithCategory>::new());
