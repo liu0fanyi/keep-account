@@ -1,6 +1,7 @@
 // Shared modules
 mod types;
 mod api;
+mod shared;
 
 // UI component modules
 mod components;
