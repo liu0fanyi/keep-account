@@ -1,15 +1,11 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
 
-use crate::app::{Category, TransactionWithCategory};
+// Import shared types and API
+use crate::types::{Category, TransactionWithCategory};
+use crate::api::{invoke, JsValue};
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
-    async fn invoke(cmd: &str, args: JsValue) -> JsValue;
-}
+
 
 
 #[derive(Clone, Debug)]

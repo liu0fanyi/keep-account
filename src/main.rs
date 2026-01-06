@@ -1,6 +1,14 @@
-mod app;
+// Shared modules
+mod types;
+mod api;
+
+// UI component modules
+mod components;
+mod mobile;
 mod summary;
-mod mobile_transaction;
+
+// Main app
+mod app;
 
 use app::App;
 use leptos::prelude::*;
