@@ -5,7 +5,7 @@ use leptos::task::spawn_local;
 use chrono::Datelike;
 
 use crate::types::{Category, TransactionWithCategory, MonthlySummary, InstallmentDetail};
-use crate::api::{invoke, JsValue};
+use crate::shared::{fetch_transactions, fetch_monthly_summary, fetch_due_installments, create_transaction, delete_transaction, validate_amount, validate_category_id, DEFAULT_ICON};
 
 #[component]
 pub fn DesktopTransactionView(
@@ -39,37 +39,14 @@ pub fn DesktopTransactionView(
         let set_installment_details = set_installment_details.clone();
 
         spawn_local(async move {
-            // Load transactions
-            let tx_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "year": year,
-                "month": month,
-            })).unwrap();
-
-            let tx_result = invoke("get_transactions_by_month", tx_args).await;
-            if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(tx_result) {
+            if let Ok(txs) = fetch_transactions(year, month).await {
                 set_transactions.set(txs);
             }
-
-            // Load monthly summary
-            let summary_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "year": year,
-                "month": month,
-            })).unwrap();
-
-            let summary_result = invoke("get_monthly_summary", summary_args).await;
-            if let Ok(summary) = serde_wasm_bindgen::from_value::<MonthlySummary>(summary_result) {
+            if let Ok(summary) = fetch_monthly_summary(year, month).await {
                 set_monthly_summary.set(Some(summary));
             }
-
-            // Load installment details for the month
-            let installment_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "year": year,
-                "month": month,
-            })).unwrap();
-
-            let installment_result = invoke("get_due_installments_by_month", installment_args).await;
-            if let Ok(installments) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(installment_result) {
-                set_installment_details.set(installments);
+            if let Ok(details) = fetch_due_installments(year, month as u32).await {
+                set_installment_details.set(details);
             }
         });
     };
@@ -83,7 +60,6 @@ pub fn DesktopTransactionView(
 
     // Add transaction
     let add_transaction = move |_| {
-        web_sys::console::log_1(&"=== 开始添加交易 ===".into());
         let cat_id = selected_category_id.get();
         let amt_str = amount.get();
         let dt = transaction_date.get();
@@ -94,92 +70,39 @@ pub fn DesktopTransactionView(
         let selected_year = selected_year.clone();
         let selected_month = selected_month.clone();
 
-        web_sys::console::log_1(&format!("输入数据: category={}, amount={}, date={:?}", cat_id, amt_str, dt).into());
-
-        // Clear previous error
         set_form_error.set(String::new());
 
-        if cat_id == 0 {
-            set_form_error.set("请选择分类".to_string());
-            web_sys::console::error_1(&"未选择分类".into());
+        // Validate using shared validators
+        if let Err(e) = validate_category_id(cat_id) {
+            set_form_error.set(e.to_string());
             return;
         }
 
-        if amt_str.is_empty() {
-            set_form_error.set("请输入金额".to_string());
-            web_sys::console::error_1(&"金额为空".into());
-            return;
-        }
-
-        let amt: f64 = match amt_str.parse() {
+        let amt = match validate_amount(&amt_str) {
             Ok(a) => a,
-            Err(_) => {
-                set_form_error.set("金额格式错误，请输入有效数字".to_string());
-                web_sys::console::error_1(&"金额格式错误".into());
-                eprintln!("Invalid amount");
+            Err(e) => {
+                set_form_error.set(e.to_string());
                 return;
             }
         };
 
         let note_val = if nt.is_empty() { None } else { Some(nt) };
 
-        web_sys::console::log_1(&"准备调用后端API".into());
-
         spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "categoryId": cat_id,
-                "amount": amt,
-                "transactionDate": dt,
-                "note": note_val,
-            })).unwrap();
-
-            web_sys::console::log_1(&format!("调用create_transaction: {:?}", args).into());
-
-            // Create transaction
-            let result = invoke("create_transaction", args).await;
-
-            web_sys::console::log_1(&format!("create_transaction返回: {:?}", result).into());
-
-            // Check if result is an error
-            if let Some(error) = result.as_string() {
-                if error.contains("Error") || error.contains("error") {
-                    let set_form_error = set_form_error.clone();
-                    set_form_error.set(format!("保存失败: {}", error));
-                    web_sys::console::error_1(&format!("创建交易失败: {}", error).into());
-                    return;
-                }
+            // Use shared create_transaction
+            if let Err(e) = create_transaction(cat_id, amt, &dt, note_val).await {
+                set_form_error.set(format!("保存失败: {}", e));
+                return;
             }
 
-            // Reload transactions
+            // Reload data using shared helpers
             let year = selected_year.get_untracked();
             let month = selected_month.get_untracked();
-            web_sys::console::log_1(&format!("准备重新加载交易，年月: {}-{}", year, month).into());
-
-            let tx_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "year": year,
-                "month": month,
-            })).unwrap();
-
-            web_sys::console::log_1(&"调用get_transactions_by_month".into());
-            let tx_result = invoke("get_transactions_by_month", tx_args).await;
-            web_sys::console::log_1(&format!("get_transactions_by_month返回: {:?}", tx_result).into());
-
-            if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(tx_result) {
-                web_sys::console::log_1(&format!("解析成功，共{}条交易记录", txs.len()).into());
-                web_sys::console::log_1(&format!("第一笔交易: {:?}", txs.first()).into());
+            
+            if let Ok(txs) = fetch_transactions(year, month).await {
                 set_transactions.set(txs);
-                web_sys::console::log_1(&"已更新transactions signal".into());
-            } else {
-                web_sys::console::error_1(&"解析交易列表失败".into());
             }
-
-            // Reload monthly summary
-            let summary_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "year": year,
-                "month": month,
-            })).unwrap();
-            let summary_result = invoke("get_monthly_summary", summary_args).await;
-            if let Ok(summary) = serde_wasm_bindgen::from_value::<MonthlySummary>(summary_result) {
+            if let Ok(summary) = fetch_monthly_summary(year, month).await {
                 set_monthly_summary.set(Some(summary));
             }
 
@@ -364,41 +287,16 @@ pub fn DesktopTransactionView(
                                 let set_monthly_summary = set_monthly_summary.clone();
 
                                 spawn_local(async move {
-                                    let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                                        "id": tx_id
-                                    })).unwrap();
+                                    let _ = delete_transaction(tx_id).await;
 
-                                    let result = invoke("delete_transaction", args).await;
-
-                                    // Check if result is an error
-                                    if let Some(error) = result.as_string() {
-                                        if error.contains("Error") || error.contains("error") {
-                                            return;
-                                        }
-                                    }
-
-                                    // Reload transactions
+                                    // Reload data using shared helpers
                                     let year = selected_year.get_untracked();
                                     let month = selected_month.get_untracked();
-                                    let tx_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                                        "year": year,
-                                        "month": month,
-                                    })).unwrap();
-
-                                    if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(
-                                        invoke("get_transactions_by_month", tx_args).await
-                                    ) {
+                                    
+                                    if let Ok(txs) = fetch_transactions(year, month).await {
                                         set_transactions.set(txs);
                                     }
-
-                                    // Reload monthly summary
-                                    let summary_args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                                        "year": year,
-                                        "month": month,
-                                    })).unwrap();
-                                    if let Ok(summary) = serde_wasm_bindgen::from_value::<MonthlySummary>(
-                                        invoke("get_monthly_summary", summary_args).await
-                                    ) {
+                                    if let Ok(summary) = fetch_monthly_summary(year, month).await {
                                         set_monthly_summary.set(Some(summary));
                                     }
                                 });
