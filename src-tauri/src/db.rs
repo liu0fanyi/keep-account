@@ -153,6 +153,39 @@ async fn run_migrations(conn: &Connection) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
 
+    // Insert default categories if table is empty
+    let mut count_rows = conn.query("SELECT COUNT(*) FROM categories", ())
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let is_empty = if let Ok(Some(row)) = count_rows.next().await {
+        row.get::<i64>(0).unwrap_or(0) == 0
+    } else {
+        true
+    };
+
+    if is_empty {
+        // Default categories: 食物, 交通, 日用品, 孩子, 学习, 其它
+        let default_categories = vec![
+            ("食物", "🍔"),
+            ("交通", "🚗"),
+            ("日用品", "🛒"),
+            ("孩子", "👶"),
+            ("学习", "📚"),
+            ("其它", "📦"),
+        ];
+
+        for (name, icon) in default_categories {
+            conn.execute(
+                "INSERT INTO categories (name, icon) VALUES (?, ?)",
+                (name, icon),
+            )
+            .await
+            .map_err(|e| format!("Failed to insert default category: {}", e))?;
+        }
+        eprintln!("Initialized default categories");
+    }
+
     // Transactions table (交易记录)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS transactions (

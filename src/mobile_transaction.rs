@@ -177,6 +177,27 @@ pub fn MobileTransactionView(
                                             <div style="flex: 1;">
                                                 <div style="font-weight: 500; font-size: 16px;">{category.name.clone()}</div>
                                             </div>
+                                            <button
+                                                on:click={
+                                                    let cat_id = category.id;
+                                                    move |_| {
+                                                        spawn_local(async move {
+                                                            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                                                "id": cat_id
+                                                            })).unwrap();
+                                                            let _result = invoke("delete_category", args).await;
+                                                            // Reload categories
+                                                            let result = invoke("get_categories", JsValue::NULL).await;
+                                                            if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
+                                                                set_categories.set(cats);
+                                                            }
+                                                        });
+                                                    }
+                                                }
+                                                style="width: 32px; height: 32px; border-radius: 50%; background: #fee; color: #e74c3c; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+                                            >
+                                                "×"
+                                            </button>
                                         </div>
                                     </For>
                                 </div>
@@ -190,6 +211,7 @@ pub fn MobileTransactionView(
                             </button>
                         </div>
                     </Show>
+
                     <Show when=move || view_type == MobileView::Installments fallback=|| ()>
                         <div style="display: flex; flex-direction: column; height: 100vh; position: relative;">
                             <div style="flex: 1; overflow-y: auto;">
