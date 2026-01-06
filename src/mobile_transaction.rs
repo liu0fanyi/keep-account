@@ -26,6 +26,7 @@ enum MobileView {
 #[component]
 pub fn MobileTransactionView(
     categories: ReadSignal<Vec<Category>>,
+    set_categories: WriteSignal<Vec<Category>>,
     selected_year: ReadSignal<i32>,
     selected_month: ReadSignal<i32>,
 ) -> impl IntoView {
@@ -34,6 +35,16 @@ pub fn MobileTransactionView(
     
     // 交易列表
     let transactions = RwSignal::new(Vec::<TransactionWithCategory>::new());
+    
+    // 加载分类列表
+    let load_categories = move || {
+        spawn_local(async move {
+            let result = invoke("get_categories", JsValue::NULL).await;
+            if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
+                set_categories.set(cats);
+            }
+        });
+    };
     
     // 加载交易列表
     let load_transactions = move || {
@@ -60,6 +71,57 @@ pub fn MobileTransactionView(
         load_transactions();
     });
     
+    // Android 返回键处理：使用浏览器历史 API
+    // 当进入表单视图时推入历史状态，返回键触发 popstate 事件时导航回上一视图
+    create_effect(move |prev_view: Option<MobileView>| {
+        let view = current_view.get();
+        
+        // 如果从非表单视图切换到表单视图，推入历史状态
+        if let Some(prev) = prev_view {
+            let is_entering_form = matches!(view, MobileView::Form | MobileView::CategoryForm | MobileView::InstallmentForm)
+                && !matches!(prev, MobileView::Form | MobileView::CategoryForm | MobileView::InstallmentForm);
+            
+            if is_entering_form {
+                if let Some(window) = web_sys::window() {
+                    if let Ok(history) = window.history() {
+                        let _ = history.push_state_with_url(&JsValue::NULL, "", None);
+                    }
+                }
+            }
+        }
+        
+        view
+    });
+    
+    // 监听 popstate 事件（返回键触发）
+    create_effect(move |_| {
+        use wasm_bindgen::closure::Closure;
+        
+        let current_view = current_view.clone();
+        
+        let closure = Closure::wrap(Box::new(move |_: web_sys::PopStateEvent| {
+            let view = current_view.get_untracked();
+            
+            // 根据当前视图决定返回到哪里
+            match view {
+                MobileView::Form => current_view.set(MobileView::List),
+                MobileView::CategoryForm => current_view.set(MobileView::Categories),
+                MobileView::InstallmentForm => current_view.set(MobileView::Installments),
+                _ => {
+                    // 主视图时允许默认行为（退出应用）
+                    // 但需要补回历史状态以保持一致性
+                }
+            }
+        }) as Box<dyn FnMut(_)>);
+        
+        if let Some(window) = web_sys::window() {
+            let _ = window.add_event_listener_with_callback("popstate", closure.as_ref().unchecked_ref());
+        }
+        
+        // 防止闭包被释放
+        closure.forget();
+    });
+
     view! {
         <div class="mobile-transaction-view">
             {move || {
@@ -159,11 +221,15 @@ pub fn MobileTransactionView(
                     <Show when=move || view_type == MobileView::CategoryForm fallback=|| ()>
                         <div style="height: 100vh;">
                             <MobileCategoryForm
-                                on_success=move || current_view.set(MobileView::Categories)
+                                on_success=move || {
+                                    load_categories();
+                                    current_view.set(MobileView::Categories);
+                                }
                                 on_cancel=move || current_view.set(MobileView::Categories)
                             />
                         </div>
                     </Show>
+
                     <Show when=move || view_type == MobileView::InstallmentForm fallback=|| ()>
                         <div style="height: 100vh;">
                             <MobileInstallmentForm
@@ -623,7 +689,8 @@ fn MobileCategoryForm(
         "📱", "👔", "🎮", "📚", "💊", "🎬", "✈️", "🛒"
     ];
     
-    let submit = move |_| {
+    // 提交逻辑（可从按钮或键盘调用）
+    let do_submit = move || {
         error_message.set(String::new());
         
         let name_val = name.get();
@@ -643,6 +710,19 @@ fn MobileCategoryForm(
             let _result = invoke("create_category", args).await;
             on_success();
         });
+    };
+    
+    // 按钮点击处理
+    let submit = move |_| {
+        do_submit();
+    };
+    
+    // 键盘回车处理
+    let handle_keydown = move |ev: web_sys::KeyboardEvent| {
+        if ev.key() == "Enter" {
+            ev.prevent_default();
+            do_submit();
+        }
     };
     
     view! {
@@ -681,8 +761,9 @@ fn MobileCategoryForm(
                     <input
                         type="text"
                         placeholder="例如：早餐、交通"
-                        value=name
+                        prop:value=move || name.get()
                         on:input=move |ev| name.set(event_target_value(&ev))
+                        on:keydown=handle_keydown
                         style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px;"
                     />
                 </div>
@@ -722,6 +803,7 @@ fn MobileCategoryForm(
         </div>
     }
 }
+
 
 /// 移动端新增分期表单
 #[component]

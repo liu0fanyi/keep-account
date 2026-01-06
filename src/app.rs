@@ -154,12 +154,14 @@ pub fn App() -> impl IntoView {
                 <Show when=move || current_view.get() == "transactions">
                     <TransactionView
                         categories=categories
+                        set_categories=set_categories
                         selected_year=selected_year
                         selected_month=selected_month
                         set_selected_year=set_selected_year
                         set_selected_month=set_selected_month
                     />
                 </Show>
+
 
                 <Show when=move || current_view.get() == "installments">
                     <InstallmentManager categories=categories />
@@ -321,6 +323,7 @@ pub(crate) fn CategoryManager(
 #[component]
 fn TransactionView(
     categories: ReadSignal<Vec<Category>>,
+    set_categories: WriteSignal<Vec<Category>>,
     selected_year: ReadSignal<i32>,
     selected_month: ReadSignal<i32>,
     set_selected_year: WriteSignal<i32>,
@@ -332,10 +335,12 @@ fn TransactionView(
             <div class="mobile-only">
                 <crate::mobile_transaction::MobileTransactionView
                     categories=categories
+                    set_categories=set_categories
                     selected_year=selected_year
                     selected_month=selected_month
                 />
             </div>
+
             
             // 桌面端视图 - 通过CSS媒体查询控制显示
             <div class="desktop-only">
