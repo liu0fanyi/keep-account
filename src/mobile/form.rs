@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 
 use crate::types::Category;
-use crate::api::invoke;
+use crate::shared::{create_transaction, validate_category_id, DEFAULT_ICON};
 /// 移动端记账表单
 #[component]
 pub fn MobileTransactionForm(
@@ -78,56 +78,32 @@ pub fn MobileTransactionForm(
         let amount_str = amount_display.get();
         let note_val = note.get();
         
-        // 验证：必须选择分类
-        if cat_id == 0 {
-            error_message.set("请选择消费类型".to_string());
+        // 验证分类
+        if let Err(e) = validate_category_id(cat_id) {
+            error_message.set(e.to_string());
             return;
         }
         
-        // 验证：金额必须有效
+        // 验证和处理金额
         let amount: f64 = match amount_str.parse::<f64>() {
-            Ok(a) if a != 0.0 => {
-                // 如果是支出，金额为负数
-                if is_expense.get() { -a } else { a }
-            },
+            Ok(a) if a != 0.0 => if is_expense.get() { -a } else { a },
             _ => {
                 error_message.set("请输入有效金额".to_string());
                 return;
             }
         };
         
-        // 获取当前日期
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        let note_value = if note_val.is_empty() { None } else { Some(note_val.clone()) };
+        let note_value = if note_val.is_empty() { None } else { Some(note_val) };
         
         spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "categoryId": cat_id,
-                "amount": amount,
-                "transactionDate": today,
-                "note": note_value,
-            })).unwrap();
-            
-            let result = invoke("create_transaction", args).await;
-            
-            // 检查是否有错误
-            if let Some(error) = result.as_string() {
-                if error.contains("Error") || error.contains("error") {
-                    error_message.set(format!("保存失败: {}", error));
-                    return;
-                }
+            if let Err(e) = create_transaction(cat_id, amount, &today, note_value).await {
+                error_message.set(format!("保存失败: {}", e));
+                return;
             }
             
-            // 成功：显示消息并在短暂延迟后切换视图
             success_message.set("记账成功！".to_string());
-            
-            // 延迟后调用成功回调
-            set_timeout(
-                move || {
-                    on_success();
-                },
-                std::time::Duration::from_millis(800),
-            );
+            set_timeout(move || on_success(), std::time::Duration::from_millis(800));
         });
     };
 
