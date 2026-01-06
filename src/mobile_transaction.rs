@@ -211,13 +211,13 @@ pub fn MobileTransactionView(
                     </Show>
                     <Show when=move || view_type == MobileView::Summary fallback=|| ()>
                         <div style="display: flex; flex-direction: column; height: 100vh;">
-                            <div style="flex: 1; overflow-y: auto; padding: 20px; text-align: center;">
-                                <h2>"月度汇总"</h2>
-                                <p style="color: #7f8c8d; margin-top: 20px;">"请在桌面版查看汇总"</p>
+                            <div style="flex: 1; overflow-y: auto;">
+                                <crate::summary::SummaryView categories=categories />
                             </div>
                             <MobileBottomNav current_view=current_view />
                         </div>
                     </Show>
+
                     <Show when=move || view_type == MobileView::CategoryForm fallback=|| ()>
                         <div style="height: 100vh;">
                             <MobileCategoryForm

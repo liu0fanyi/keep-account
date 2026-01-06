@@ -127,9 +127,9 @@ pub fn SummaryView(
     });
 
     view! {
-        <div class="summary-view">
-            <div class="section-header">
-                <h2>"账目汇总"</h2>
+        <div class="summary-view" style="padding: 16px;">
+            <div class="section-header" style="margin: 0 0 16px 0;">
+                <h2 style="margin: 0; font-size: 20px;">"账目汇总"</h2>
             </div>
 
             // Total summary
