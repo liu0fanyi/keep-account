@@ -128,3 +128,22 @@ pub async fn create_installment(
     let _ = invoke("create_installment", args).await;
     Ok(())
 }
+
+/// Delete an installment
+pub async fn delete_installment(id: i64) -> Result<(), String> {
+    let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "id": id }))
+        .map_err(|e| format!("Failed to serialize args: {:?}", e))?;
+    
+    let _ = invoke("delete_installment", args).await;
+    Ok(())
+}
+
+/// Get installment details by installment ID
+pub async fn fetch_installment_details(installment_id: i64) -> Result<Vec<InstallmentDetail>, String> {
+    let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "installmentId": installment_id }))
+        .map_err(|e| format!("Failed to serialize args: {:?}", e))?;
+    
+    let result = invoke("get_installment_details", args).await;
+    serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(result)
+        .map_err(|e| format!("Failed to parse installment details: {:?}", e))
+}
