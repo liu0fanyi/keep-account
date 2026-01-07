@@ -156,10 +156,9 @@ pub fn SummaryView(
     });
 
     view! {
-        <div class="summary-view" style="padding: 16px;">
-            <div class="section-header" style="margin: 0 0 16px 0;">
-                <h2 style="margin: 0; font-size: 20px;">"账目汇总"</h2>
-            </div>
+        <div class="summary-view" style="display: flex; flex-direction: column; height: 100%;">
+            <h2 style="margin: 0; font-size: 18px; padding: 12px 16px; background: white; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;">"账目汇总"</h2>
+            <div style="flex: 1; overflow-y: auto; padding: 16px;">
 
             // Total summary
             <div class="monthly-summary">
@@ -237,6 +236,7 @@ pub fn SummaryView(
                         </div>
                     </div>
                 </For>
+            </div>
             </div>
         </div>
     }

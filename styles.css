@@ -989,6 +989,20 @@ select:focus {
   font-weight: 600;
 }
 
+.mobile-nav-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 移动端表单视图 */
 .mobile-form-view {
   display: flex;

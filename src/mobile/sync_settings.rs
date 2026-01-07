@@ -130,16 +130,7 @@ pub fn SyncSettingsForm(
     view! {
         <div class="mobile-form-view">
             // Header
-            <div class="mobile-form-header">
-                <button 
-                    class="mobile-form-cancel"
-                    on:click=move |_| on_back()
-                >
-                    "←"
-                </button>
-                <h2>"云同步设置"</h2>
-                <div class="mobile-form-spacer"></div>
-            </div>
+            <h2 style="margin: 0; font-size: 18px; padding: 12px 16px; background: white; border-bottom: 1px solid #e0e0e0; text-align: center;">"云同步设置"</h2>
             
             // Message display
             {move || {
