@@ -3,8 +3,9 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::types::TransactionWithCategory;
+use crate::types::{TransactionWithCategory, InstallmentDetail};
 use crate::shared::{delete_transaction, fetch_transactions, DEFAULT_ICON};
+use crate::api::{invoke, JsValue};
 
 /// 移动端交易列表
 #[component]
@@ -12,7 +13,37 @@ pub fn MobileTransactionList(
     transactions: RwSignal<Vec<TransactionWithCategory>>,
     selected_year: ReadSignal<i32>,
     selected_month: ReadSignal<i32>,
+    set_selected_year: WriteSignal<i32>,
+    set_selected_month: WriteSignal<i32>,
 ) -> impl IntoView {
+    // 当月到期分期
+    let due_installments = RwSignal::new(Vec::<InstallmentDetail>::new());
+    
+    // 加载当月到期分期
+    let load_due_installments = move || {
+        let year = selected_year.get_untracked();
+        let month = selected_month.get_untracked();
+        
+        spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                "year": year,
+                "month": month,
+            })).unwrap();
+            
+            let result = invoke("get_due_installments_by_month", args).await;
+            if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(result) {
+                due_installments.set(items);
+            }
+        });
+    };
+    
+    // 初始加载
+    create_effect(move |_| {
+        let _year = selected_year.get();
+        let _month = selected_month.get();
+        load_due_installments();
+    });
+    
     let on_delete = move |tx_id: i64| {
         let year = selected_year.get_untracked();
         let month = selected_month.get_untracked();
@@ -25,11 +56,66 @@ pub fn MobileTransactionList(
         });
     };
     
+    // 上一个月
+    let prev_month = move |_| {
+        let year = selected_year.get_untracked();
+        let month = selected_month.get_untracked();
+        if month == 1 {
+            set_selected_year.set(year - 1);
+            set_selected_month.set(12);
+        } else {
+            set_selected_month.set(month - 1);
+        }
+    };
+    
+    // 下一个月
+    let next_month = move |_| {
+        let year = selected_year.get_untracked();
+        let month = selected_month.get_untracked();
+        if month == 12 {
+            set_selected_year.set(year + 1);
+            set_selected_month.set(1);
+        } else {
+            set_selected_month.set(month + 1);
+        }
+    };
+    
     view! {
         <div class="mobile-list-view">
-            <div class="mobile-list-header">
-                <h2>{move || format!("{}年{:02}月", selected_year.get(), selected_month.get())}</h2>
+            <div class="mobile-list-header" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px;">
+                <button 
+                    on:click=prev_month
+                    style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;"
+                >
+                    "◀"
+                </button>
+                <h2 style="margin: 0; flex: 1; text-align: center;">
+                    {move || format!("{}年{:02}月", selected_year.get(), selected_month.get())}
+                </h2>
+                <button 
+                    on:click=next_month
+                    style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px;"
+                >
+                    "▶"
+                </button>
             </div>
+            
+            // 当月分期到期提醒
+            {move || {
+                let items = due_installments.get();
+                let total: f64 = items.iter().map(|i| i.amount).sum();
+                if items.is_empty() {
+                    None
+                } else {
+                    Some(view! {
+                        <div style="margin: 8px 16px; padding: 12px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                            <div style="font-size: 14px; font-weight: 500; color: #856404;">
+                                {format!("本月分期: {}笔 共 ¥{:.2}", items.len(), total)}
+                            </div>
+                        </div>
+                    })
+                }
+            }}
             
             <div class="mobile-list-content">
                 <Show when=move || !transactions.get().is_empty()

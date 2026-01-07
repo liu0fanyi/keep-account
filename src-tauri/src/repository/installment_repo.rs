@@ -53,16 +53,44 @@ pub async fn create_installment(
 /// Calculate due date for installment
 fn calculate_due_date(start_date: &str, months_offset: i32) -> Result<String, String> {
     use chrono::NaiveDate;
-    use chrono::Duration;
 
     let date = NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid date format: {}", e))?;
 
-    // Add months using Duration (approximately 30 days per month)
-    let days_offset = months_offset * 30;
-    let due_date = date + Duration::days(days_offset as i64);
+    // Proper month arithmetic
+    let year = date.year();
+    let month = date.month() as i32;
+    let day = date.day();
+    
+    // Calculate new year and month
+    let total_months = (year * 12 + month - 1) + months_offset;
+    let new_year = total_months / 12;
+    let new_month = (total_months % 12 + 1) as u32;
+    
+    // Handle day overflow (e.g., Jan 31 -> Feb 28)
+    let days_in_month = days_in_month(new_year, new_month);
+    let new_day = day.min(days_in_month);
+    
+    let due_date = NaiveDate::from_ymd_opt(new_year, new_month, new_day)
+        .ok_or_else(|| format!("Invalid date: {}-{}-{}", new_year, new_month, new_day))?;
 
     Ok(due_date.format("%Y-%m-%d").to_string())
+}
+
+/// Get days in a month
+fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        },
+        _ => 30,
+    }
 }
 
 /// Get installment by ID

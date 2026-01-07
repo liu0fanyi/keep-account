@@ -136,6 +136,8 @@ fn TransactionView(
                     set_categories=set_categories
                     selected_year=selected_year
                     selected_month=selected_month
+                    set_selected_year=set_selected_year
+                    set_selected_month=set_selected_month
                 />
             </div>
 

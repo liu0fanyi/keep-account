@@ -102,8 +102,7 @@ pub fn MobileTransactionForm(
                 return;
             }
             
-            success_message.set("记账成功！".to_string());
-            set_timeout(move || on_success(), std::time::Duration::from_millis(800));
+            on_success();
         });
     };
 

@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use wasm_bindgen::JsCast;
 
-use crate::types::{Category, TransactionWithCategory};
+use crate::types::{Category, TransactionWithCategory, InstallmentWithCategory};
 use crate::api::{invoke, JsValue};
 
 pub use super::nav::{MobileView, MobileBottomNav};
@@ -19,12 +19,17 @@ pub fn MobileTransactionView(
     set_categories: WriteSignal<Vec<Category>>,
     selected_year: ReadSignal<i32>,
     selected_month: ReadSignal<i32>,
+    set_selected_year: WriteSignal<i32>,
+    set_selected_month: WriteSignal<i32>,
 ) -> impl IntoView {
     // 当前视图：列表或表单
     let current_view = RwSignal::new(MobileView::List);
     
     // 交易列表
     let transactions = RwSignal::new(Vec::<TransactionWithCategory>::new());
+    
+    // 分期列表
+    let installments = RwSignal::new(Vec::<InstallmentWithCategory>::new());
     
     // 加载分类列表
     let load_categories = move || {
@@ -50,6 +55,16 @@ pub fn MobileTransactionView(
             let result = invoke("get_transactions_by_month", args).await;
             if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result) {
                 transactions.set(txs);
+            }
+        });
+    };
+    
+    // 加载分期列表
+    let load_installments = move || {
+        spawn_local(async move {
+            let result = invoke("get_installments", JsValue::NULL).await;
+            if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result) {
+                installments.set(items);
             }
         });
     };
@@ -138,6 +153,8 @@ pub fn MobileTransactionView(
                                     transactions=transactions
                                     selected_year=selected_year
                                     selected_month=selected_month
+                                    set_selected_year=set_selected_year
+                                    set_selected_month=set_selected_month
                                 />
                             </div>
                             <MobileBottomNav current_view=current_view />
@@ -203,13 +220,79 @@ pub fn MobileTransactionView(
                     </Show>
 
                     <Show when=move || view_type == MobileView::Installments fallback=|| ()>
+                        {load_installments();}
                         <div style="display: flex; flex-direction: column; height: 100vh; position: relative;">
                             <div style="flex: 1; overflow-y: auto;">
                                 <div style="padding: 16px;">
                                     <h2 style="margin: 0 0 16px 0; font-size: 20px;">"分期管理"</h2>
-                                    <div style="padding: 40px 20px; text-align: center; color: #7f8c8d;">
-                                        "暂无分期记录"
-                                    </div>
+                                    {move || {
+                                        let items = installments.get();
+                                        if items.is_empty() {
+                                            view! {
+                                                <div style="padding: 40px 20px; text-align: center; color: #7f8c8d;">
+                                                    "暂无分期记录"
+                                                </div>
+                                            }.into_any()
+                                        } else {
+                                            view! {
+                                                <div>
+                                                    <For
+                                                        each=move || installments.get()
+                                                        key=|item| item.id
+                                                        let:item
+                                                    >
+                                                        <div style="padding: 12px; margin-bottom: 8px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+                                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                                <div style="font-size: 32px;">
+                                                                    {item.category_icon.clone().unwrap_or_else(|| "📦".to_string())}
+                                                                </div>
+                                                                <div style="flex: 1;">
+                                                                    <div style="font-weight: 500; font-size: 16px;">
+                                                                        {item.category_name.clone()}
+                                                                    </div>
+                                                                    <div style="font-size: 12px; color: #666;">
+                                                                        {format!("{}期 · 开始于 {}", item.installment_count, item.start_date)}
+                                                                    </div>
+                                                                    {item.note.clone().map(|n| view! {
+                                                                        <div style="font-size: 12px; color: #888;">{n}</div>
+                                                                    })}
+                                                                </div>
+                                                                <div style="text-align: right;">
+                                                                    <div style="font-weight: bold; color: #e53e3e;">
+                                                                        {format!("¥{:.2}", item.total_amount)}
+                                                                    </div>
+                                                                    <div style="font-size: 12px; color: #666;">
+                                                                        {format!("每期 ¥{:.2}", item.total_amount / item.installment_count as f64)}
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    on:click={
+                                                                        let item_id = item.id;
+                                                                        move |_| {
+                                                                            spawn_local(async move {
+                                                                                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                                                                    "id": item_id
+                                                                                })).unwrap();
+                                                                                let _ = invoke("delete_installment", args).await;
+                                                                                // Reload installments
+                                                                                let result = invoke("get_installments", JsValue::NULL).await;
+                                                                                if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result) {
+                                                                                    installments.set(items);
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                    style="width: 32px; height: 32px; border-radius: 50%; background: #fee; color: #e74c3c; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: 8px;"
+                                                                >
+                                                                    "×"
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </For>
+                                                </div>
+                                            }.into_any()
+                                        }
+                                    }}
                                 </div>
                             </div>
                             <MobileBottomNav current_view=current_view />
@@ -245,6 +328,7 @@ pub fn MobileTransactionView(
                     <Show when=move || view_type == MobileView::InstallmentForm fallback=|| ()>
                         <div style="height: 100vh;">
                             <MobileInstallmentForm
+                                categories=categories
                                 on_success=move || current_view.set(MobileView::Installments)
                                 on_cancel=move || current_view.set(MobileView::Installments)
                             />

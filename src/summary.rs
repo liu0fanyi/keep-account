@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 
 // Import shared types and API
-use crate::types::{Category, TransactionWithCategory};
+use crate::types::{Category, TransactionWithCategory, InstallmentDetail};
 use crate::api::{invoke, JsValue};
 
 
@@ -13,8 +13,10 @@ struct MonthGroup {
     year: i32,
     month: i32,
     transactions: Vec<TransactionWithCategory>,
+    installments: Vec<InstallmentDetail>,
     income: f64,
     expense: f64,
+    installment_expense: f64,
 }
 
 #[component]
@@ -27,8 +29,8 @@ pub fn SummaryView(
     let (total_expense, set_total_expense) = create_signal(0.0);
     let (total_balance, set_total_balance) = create_signal(0.0);
 
-    // Load all transactions
-    let load_all_transactions = {
+    // Load all transactions and installments
+    let load_all_data = {
         let set_all_transactions = set_all_transactions.clone();
         let set_grouped_by_month = set_grouped_by_month.clone();
         let set_total_income = set_total_income.clone();
@@ -43,83 +45,114 @@ pub fn SummaryView(
             let set_total_balance = set_total_balance.clone();
 
             spawn_local(async move {
-                let result = invoke("get_transactions", JsValue::NULL).await;
-                web_sys::console::log_1(&format!("Summary: 收到的数据: {:?}", result).into());
+                // Get all transactions
+                let tx_result = invoke("get_transactions", JsValue::NULL).await;
+                let txs: Vec<TransactionWithCategory> = serde_wasm_bindgen::from_value(tx_result).unwrap_or_default();
+                set_all_transactions.set(txs.clone());
+                
+                // Get all installment details
+                let inst_result = invoke("get_installments", JsValue::NULL).await;
+                let mut all_installment_details: Vec<InstallmentDetail> = Vec::new();
+                
+                if let Ok(installments) = serde_wasm_bindgen::from_value::<Vec<crate::types::InstallmentWithCategory>>(inst_result) {
+                    for inst in installments {
+                        let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                            "installmentId": inst.id
+                        })).unwrap();
+                        let details_result = invoke("get_installment_details", args).await;
+                        if let Ok(details) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(details_result) {
+                            all_installment_details.extend(details);
+                        }
+                    }
+                }
 
-                match serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result) {
-                    Ok(txs) => {
-                        web_sys::console::log_1(&format!("Summary: 解析成功，共{}条记录", txs.len()).into());
-                        set_all_transactions.set(txs.clone());
+                // Group by month
+                let mut month_map: std::collections::HashMap<(i32, i32), MonthGroup> = std::collections::HashMap::new();
+                let mut total_inc = 0.0;
+                let mut total_exp = 0.0;
 
-                        // Group by month
-                    let mut month_map: std::collections::HashMap<(i32, i32), MonthGroup> = std::collections::HashMap::new();
-                    let mut total_inc = 0.0;
-                    let mut total_exp = 0.0;
+                // Process transactions
+                for tx in &txs {
+                    if let Some(date_part) = tx.transaction_date.split('T').next() {
+                        let parts: Vec<&str> = date_part.split('-').collect();
+                        if parts.len() >= 2 {
+                            if let (Ok(year), Ok(month)) = (parts[0].parse::<i32>(), parts[1].parse::<i32>()) {
+                                let key = (year, month);
+                                let group = month_map.entry(key).or_insert(MonthGroup {
+                                    year,
+                                    month,
+                                    transactions: Vec::new(),
+                                    installments: Vec::new(),
+                                    income: 0.0,
+                                    expense: 0.0,
+                                    installment_expense: 0.0,
+                                });
 
-                    for tx in txs {
-                        // Parse date to get year and month
-                        if let Some(date_part) = tx.transaction_date.split('T').next() {
-                            let parts: Vec<&str> = date_part.split('-').collect();
-                            if parts.len() >= 2 {
-                                if let Ok(year) = parts[0].parse::<i32>() {
-                                    if let Ok(month) = parts[1].parse::<i32>() {
-                                        let key = (year, month);
-                                        let group = month_map.entry(key).or_insert(MonthGroup {
-                                            year,
-                                            month,
-                                            transactions: Vec::new(),
-                                            income: 0.0,
-                                            expense: 0.0,
-                                        });
+                                group.transactions.push(tx.clone());
 
-                                        group.transactions.push(tx.clone());
-
-                                        if tx.amount >= 0.0 {
-                                            group.income += tx.amount;
-                                            total_inc += tx.amount;
-                                        } else {
-                                            group.expense += tx.amount.abs();
-                                            total_exp += tx.amount.abs();
-                                        }
-                                    }
+                                if tx.amount >= 0.0 {
+                                    group.income += tx.amount;
+                                    total_inc += tx.amount;
+                                } else {
+                                    group.expense += tx.amount.abs();
+                                    total_exp += tx.amount.abs();
                                 }
                             }
                         }
                     }
+                }
+                
+                // Process installment details
+                for detail in all_installment_details {
+                    if let Some(date_part) = detail.due_date.split('T').next() {
+                        let parts: Vec<&str> = date_part.split('-').collect();
+                        if parts.len() >= 2 {
+                            if let (Ok(year), Ok(month)) = (parts[0].parse::<i32>(), parts[1].parse::<i32>()) {
+                                let key = (year, month);
+                                let group = month_map.entry(key).or_insert(MonthGroup {
+                                    year,
+                                    month,
+                                    transactions: Vec::new(),
+                                    installments: Vec::new(),
+                                    income: 0.0,
+                                    expense: 0.0,
+                                    installment_expense: 0.0,
+                                });
 
-                    // Convert to sorted vector
-                    let mut groups: Vec<MonthGroup> = month_map.into_values().collect();
-                    groups.sort_by(|a, b| {
-                        if a.year != b.year {
-                            b.year.cmp(&a.year)
-                        } else {
-                            b.month.cmp(&a.month)
+                                group.installment_expense += detail.amount;
+                                total_exp += detail.amount;
+                                group.installments.push(detail);
+                            }
                         }
-                    });
-
-                    // Sort transactions within each group by date
-                    for group in &mut groups {
-                        group.transactions.sort_by(|a, b| b.transaction_date.cmp(&a.transaction_date));
                     }
+                }
 
-                    set_grouped_by_month.set(groups);
-                    set_total_income.set(total_inc);
-                    set_total_expense.set(total_exp);
-                    set_total_balance.set(total_inc - total_exp);
+                // Convert to sorted vector
+                let mut groups: Vec<MonthGroup> = month_map.into_values().collect();
+                groups.sort_by(|a, b| {
+                    if a.year != b.year {
+                        b.year.cmp(&a.year)
+                    } else {
+                        b.month.cmp(&a.month)
+                    }
+                });
 
-                    web_sys::console::log_1(&format!("Summary: 总收入={:.2}, 总支出={:.2}, 结余={:.2}", total_inc, total_exp, total_inc - total_exp).into());
+                // Sort transactions within each group by date
+                for group in &mut groups {
+                    group.transactions.sort_by(|a, b| b.transaction_date.cmp(&a.transaction_date));
                 }
-                Err(e) => {
-                    web_sys::console::error_1(&format!("Summary: 解析失败: {:?}", e).into());
-                }
-                }
+
+                set_grouped_by_month.set(groups);
+                set_total_income.set(total_inc);
+                set_total_expense.set(total_exp);
+                set_total_balance.set(total_inc - total_exp);
             });
         }
     };
 
     // Load on mount
     create_effect(move |_| {
-        load_all_transactions();
+        load_all_data();
     });
 
     view! {
@@ -163,10 +196,21 @@ pub fn SummaryView(
                                     {format!("收入: {:.2}", group.income)}
                                 </span>
                                 <span class="month-expense">
-                                    {format!("支出: {:.2}", group.expense)}
+                                    {format!("支出: {:.2}", group.expense + group.installment_expense)}
                                 </span>
                             </div>
                         </div>
+
+                        // Show installment summary if any
+                        {if group.installment_expense > 0.0 {
+                            Some(view! {
+                                <div style="padding: 8px 12px; margin: 4px 0 8px 0; background: #fff3cd; border-radius: 6px; font-size: 13px; color: #856404;">
+                                    {format!("分期还款: {}笔 共 ¥{:.2}", group.installments.len(), group.installment_expense)}
+                                </div>
+                            })
+                        } else {
+                            None
+                        }}
 
                         <div class="transaction-list">
                             <For
