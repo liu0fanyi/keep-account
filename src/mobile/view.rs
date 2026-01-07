@@ -12,6 +12,7 @@ pub use super::list::MobileTransactionList;
 pub use super::form::MobileTransactionForm;
 pub use super::category_form::MobileCategoryForm;
 pub use super::installment_form::MobileInstallmentForm;
+pub use super::sync_settings::SyncSettingsForm;
 /// 移动端记账组件
 #[component]
 pub fn MobileTransactionView(
@@ -306,6 +307,15 @@ pub fn MobileTransactionView(
                     </Show>
                     <Show when=move || view_type == MobileView::Summary fallback=|| ()>
                         <div style="display: flex; flex-direction: column; height: 100vh;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: white; border-bottom: 1px solid #e0e0e0;">
+                                <h2 style="margin: 0; font-size: 18px;">"账目汇总"</h2>
+                                <button
+                                    on:click=move |_| current_view.set(MobileView::Settings)
+                                    style="padding: 8px; background: none; border: none; font-size: 20px; cursor: pointer;"
+                                >
+                                    "⚙️"
+                                </button>
+                            </div>
                             <div style="flex: 1; overflow-y: auto;">
                                 <crate::summary::SummaryView categories=categories />
                             </div>
@@ -331,6 +341,14 @@ pub fn MobileTransactionView(
                                 categories=categories
                                 on_success=move || current_view.set(MobileView::Installments)
                                 on_cancel=move || current_view.set(MobileView::Installments)
+                            />
+                        </div>
+                    </Show>
+
+                    <Show when=move || view_type == MobileView::Settings fallback=|| ()>
+                        <div style="height: 100vh;">
+                            <SyncSettingsForm
+                                on_back=move || current_view.set(MobileView::Summary)
                             />
                         </div>
                     </Show>

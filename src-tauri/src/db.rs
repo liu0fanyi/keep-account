@@ -91,12 +91,74 @@ pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
         // Cloud sync mode
         eprintln!("Initializing Synced DB: {}, token len: {}", conf.url, conf.token.len());
 
-        let db = Builder::new_synced_database(db_path_str, conf.url, conf.token)
-            .build()
-            .await
-            .map_err(|e| format!("Build failed: {}", e))?;
-        let conn = db.connect().map_err(|e| format!("Connect failed: {}", e))?;
-        (db, conn)
+        async fn try_build_connect(path: &str, url: String, token: String) -> Result<(Database, Connection), String> {
+            let db = Builder::new_synced_database(path, url, token)
+                .build()
+                .await
+                .map_err(|e| format!("Build failed: {}", e))?;
+            let conn = db.connect().map_err(|e| format!("Connect failed: {}", e))?;
+            
+            // Force initial sync to detect conflicts immediately
+            db.sync().await.map_err(|e| format!("Initial sync failed: {}", e))?;
+            
+            Ok((db, conn))
+        }
+
+        match try_build_connect(db_path_str, conf.url.clone(), conf.token.clone()).await {
+            Ok(pair) => pair,
+            Err(e) => {
+                eprintln!("Synced DB init failed: {}", e);
+                
+                // Check for various sync conflict conditions
+                let should_recover = e.contains("local state is incorrect") 
+                    || e.contains("invalid local state") 
+                    || e.contains("server returned a conflict")
+                    || e.contains("Generation ID mismatch")
+                    || e.contains("mismatch")
+                    || e.contains("metadata file does not");
+                
+                eprintln!("Should auto-recover: {}", should_recover);
+                
+                if should_recover {
+                    eprintln!("Detected conflicting local DB state. Auto-recovering by wiping local DB...");
+                    
+                    // Backup conflicting database
+                    let conflict_path = db_path.with_extension("db.legacy");
+                    if conflict_path.exists() { 
+                        eprintln!("Removing old legacy backup: {:?}", conflict_path);
+                        let _ = std::fs::remove_file(&conflict_path); 
+                    }
+                    if let Err(e) = std::fs::rename(&db_path, &conflict_path) {
+                        eprintln!("Rename to legacy failed: {} - removing instead", e);
+                        let _ = std::fs::remove_file(&db_path);
+                    } else {
+                        eprintln!("Backed up old DB to: {:?}", conflict_path);
+                    }
+                    
+                    // Clean up sync metadata
+                    eprintln!("Cleaning up sync metadata...");
+                    let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
+                    let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
+                    
+                    let sync_dir = db_path.parent().unwrap().join(format!("{}-sync", db_path.file_name().unwrap().to_str().unwrap()));
+                    if sync_dir.exists() {
+                        eprintln!("Removing sync directory: {:?}", sync_dir);
+                        if sync_dir.is_dir() { 
+                            let _ = std::fs::remove_dir_all(&sync_dir); 
+                        } else { 
+                            let _ = std::fs::remove_file(&sync_dir); 
+                        }
+                    }
+                    
+                    eprintln!("Retrying with clean state...");
+                    // Retry with clean state
+                    try_build_connect(db_path_str, conf.url, conf.token).await
+                        .map_err(|e| format!("Retry failed: {}", e))?
+                } else {
+                    return Err(e);
+                }
+            }
+        }
     } else {
         // Local only mode
         let db = Builder::new_local(db_path_str)
@@ -275,4 +337,129 @@ pub async fn configure_sync(db_path: &PathBuf, url: String, token: String) -> Re
 /// Get current sync configuration
 pub fn get_sync_config(db_path: &PathBuf) -> Option<SyncConfig> {
     load_config(db_path)
+}
+
+/// Check if legacy database exists
+pub fn has_legacy_db(db_path: &PathBuf) -> bool {
+    let legacy_path = db_path.with_extension("db.legacy");
+    legacy_path.exists()
+}
+
+/// Migrate data from legacy database to current database
+pub async fn migrate_from_legacy(db_path: &PathBuf, current_conn: &Connection) -> Result<String, String> {
+    let legacy_path = db_path.with_extension("db.legacy");
+    
+    if !legacy_path.exists() {
+        return Err("没有找到旧数据备份文件".to_string());
+    }
+    
+    eprintln!("Opening legacy database: {:?}", legacy_path);
+    
+    let legacy_path_str = legacy_path.to_str().ok_or("Invalid legacy path")?;
+    let legacy_db = Builder::new_local(legacy_path_str)
+        .build()
+        .await
+        .map_err(|e| format!("无法打开旧数据库: {}", e))?;
+    let legacy_conn = legacy_db.connect()
+        .map_err(|e| format!("无法连接旧数据库: {}", e))?;
+    
+    let mut migrated_categories = 0;
+    let mut migrated_transactions = 0;
+    let mut migrated_installments = 0;
+    
+    // Migrate categories
+    eprintln!("Migrating categories...");
+    let mut cat_stmt = legacy_conn.prepare(
+        "SELECT id, name, icon, created_at, updated_at FROM categories"
+    ).await.map_err(|e| e.to_string())?;
+    let mut cat_rows = cat_stmt.query(()).await.map_err(|e| e.to_string())?;
+    
+    while let Ok(Some(row)) = cat_rows.next().await {
+        let id: i64 = row.get(0).map_err(|e| e.to_string())?;
+        let name: String = row.get(1).map_err(|e| e.to_string())?;
+        let icon: Option<String> = row.get(2).ok();
+        let created_at: String = row.get(3).map_err(|e| e.to_string())?;
+        let updated_at: String = row.get(4).map_err(|e| e.to_string())?;
+        
+        current_conn.execute(
+            "INSERT OR REPLACE INTO categories (id, name, icon, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            libsql::params![id, name, icon, created_at, updated_at]
+        ).await.map_err(|e| e.to_string())?;
+        migrated_categories += 1;
+    }
+    
+    // Migrate transactions
+    eprintln!("Migrating transactions...");
+    let mut tx_stmt = legacy_conn.prepare(
+        "SELECT id, category_id, amount, transaction_date, note, created_at FROM transactions"
+    ).await.map_err(|e| e.to_string())?;
+    let mut tx_rows = tx_stmt.query(()).await.map_err(|e| e.to_string())?;
+    
+    while let Ok(Some(row)) = tx_rows.next().await {
+        let id: i64 = row.get(0).map_err(|e| e.to_string())?;
+        let category_id: i64 = row.get(1).map_err(|e| e.to_string())?;
+        let amount: f64 = row.get(2).map_err(|e| e.to_string())?;
+        let transaction_date: String = row.get(3).map_err(|e| e.to_string())?;
+        let note: Option<String> = row.get(4).ok();
+        let created_at: String = row.get(5).map_err(|e| e.to_string())?;
+        
+        current_conn.execute(
+            "INSERT OR REPLACE INTO transactions (id, category_id, amount, transaction_date, note, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            libsql::params![id, category_id, amount, transaction_date, note, created_at]
+        ).await.map_err(|e| e.to_string())?;
+        migrated_transactions += 1;
+    }
+    
+    // Migrate installments
+    eprintln!("Migrating installments...");
+    let mut inst_stmt = legacy_conn.prepare(
+        "SELECT id, category_id, total_amount, installment_count, start_date, note, created_at FROM installments"
+    ).await.map_err(|e| e.to_string())?;
+    let mut inst_rows = inst_stmt.query(()).await.map_err(|e| e.to_string())?;
+    
+    while let Ok(Some(row)) = inst_rows.next().await {
+        let id: i64 = row.get(0).map_err(|e| e.to_string())?;
+        let category_id: i64 = row.get(1).map_err(|e| e.to_string())?;
+        let total_amount: f64 = row.get(2).map_err(|e| e.to_string())?;
+        let installment_count: i32 = row.get(3).map_err(|e| e.to_string())?;
+        let start_date: String = row.get(4).map_err(|e| e.to_string())?;
+        let note: Option<String> = row.get(5).ok();
+        let created_at: String = row.get(6).map_err(|e| e.to_string())?;
+        
+        current_conn.execute(
+            "INSERT OR REPLACE INTO installments (id, category_id, total_amount, installment_count, start_date, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![id, category_id, total_amount, installment_count, start_date, note, created_at]
+        ).await.map_err(|e| e.to_string())?;
+        migrated_installments += 1;
+    }
+    
+    // Migrate installment details
+    eprintln!("Migrating installment details...");
+    let mut detail_stmt = legacy_conn.prepare(
+        "SELECT id, installment_id, sequence_number, amount, due_date, is_paid, paid_date FROM installment_details"
+    ).await.map_err(|e| e.to_string())?;
+    let mut detail_rows = detail_stmt.query(()).await.map_err(|e| e.to_string())?;
+    
+    while let Ok(Some(row)) = detail_rows.next().await {
+        let id: i64 = row.get(0).map_err(|e| e.to_string())?;
+        let installment_id: i64 = row.get(1).map_err(|e| e.to_string())?;
+        let sequence_number: i32 = row.get(2).map_err(|e| e.to_string())?;
+        let amount: f64 = row.get(3).map_err(|e| e.to_string())?;
+        let due_date: String = row.get(4).map_err(|e| e.to_string())?;
+        let is_paid: i32 = row.get(5).map_err(|e| e.to_string())?;
+        let paid_date: Option<String> = row.get(6).ok();
+        
+        current_conn.execute(
+            "INSERT OR REPLACE INTO installment_details (id, installment_id, sequence_number, amount, due_date, is_paid, paid_date) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![id, installment_id, sequence_number, amount, due_date, is_paid, paid_date]
+        ).await.map_err(|e| e.to_string())?;
+    }
+    
+    let summary = format!(
+        "迁移完成！已导入 {} 个分类、{} 条交易记录、{} 个分期计划",
+        migrated_categories, migrated_transactions, migrated_installments
+    );
+    eprintln!("{}", summary);
+    
+    Ok(summary)
 }

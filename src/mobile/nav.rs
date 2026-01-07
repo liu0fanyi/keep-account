@@ -3,7 +3,7 @@
 use leptos::prelude::*;
 #[derive(Clone, Copy, PartialEq)]
 pub enum MobileView {
-    List, Form, Categories, CategoryForm, Installments, InstallmentForm, Summary,
+    List, Form, Categories, CategoryForm, Installments, InstallmentForm, Summary, Settings,
 }
 
 /// 底部导航栏

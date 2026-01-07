@@ -13,6 +13,7 @@ use repository::{category_repo, installment_repo, transaction_repo};
 /// Global database state
 pub struct AppState {
     pub db: DbState,
+    pub db_path: PathBuf,
 }
 
 // ============================================================================
@@ -198,18 +199,33 @@ async fn sync_database(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 async fn configure_sync(
-    db_path: PathBuf,
+    state: State<'_, AppState>,
     url: String,
     token: String,
 ) -> Result<(), String> {
-    db::configure_sync(&db_path, url, token).await
+    db::configure_sync(&state.db_path, url, token).await
 }
 
 #[tauri::command]
 async fn get_sync_config(
-    db_path: PathBuf,
+    state: State<'_, AppState>,
 ) -> Result<Option<db::SyncConfig>, String> {
-    Ok(db::get_sync_config(&db_path))
+    Ok(db::get_sync_config(&state.db_path))
+}
+
+#[tauri::command]
+async fn has_legacy_db(
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    Ok(db::has_legacy_db(&state.db_path))
+}
+
+#[tauri::command]
+async fn migrate_from_legacy(
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let conn = state.db.get_connection().await?;
+    db::migrate_from_legacy(&state.db_path, &conn).await
 }
 
 // ============================================================================
@@ -228,10 +244,12 @@ pub fn run() {
                 .expect("Failed to get app local data dir")
                 .join("accounts.db");
 
+            let db_path_for_init = db_path.clone();
+            
             // Initialize database synchronously
             let db_state = tauri::async_runtime::block_on(async move {
-                eprintln!("Initializing database at: {:?}", db_path);
-                db::init_db(&db_path).await
+                eprintln!("Initializing database at: {:?}", db_path_for_init);
+                db::init_db(&db_path_for_init).await
             });
 
             let db_state = match db_state {
@@ -246,7 +264,7 @@ pub fn run() {
             };
 
             // Manage database state
-            app.manage(AppState { db: db_state });
+            app.manage(AppState { db: db_state, db_path });
 
 
             // Set window size based on monitor DPI (desktop only)
@@ -304,6 +322,8 @@ pub fn run() {
             sync_database,
             configure_sync,
             get_sync_config,
+            has_legacy_db,
+            migrate_from_legacy,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
