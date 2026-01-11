@@ -104,8 +104,11 @@ fn load_config(db_path: &PathBuf) -> Option<SyncConfig> {
 }
 
 pub(crate) async fn validate_cloud_connection(url: String, token: String) -> Result<(), String> {
+    log::info!("Validating cloud connection: url={}", url);
+
     // Basic format check
     if !url.starts_with("libsql://") && !url.starts_with("https://") {
+        log::error!("Invalid URL format: {}", url);
         return Err("URL must start with libsql:// or https://".to_string());
     }
 
@@ -113,38 +116,62 @@ pub(crate) async fn validate_cloud_connection(url: String, token: String) -> Res
     let http_url = if url.starts_with("libsql://") {
         url.replace("libsql://", "https://")
     } else {
-        url
+        url.clone()
     };
+
+    log::info!("HTTP URL: {}", http_url);
+    log::info!("Token length: {}", token.len());
 
     // Use reqwest to check connectivity AND authentication
     // We must send a query to trigger actual token validation.
     // Just checking GET / might return 200 OK (welcome page) even with bad token.
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to build HTTP client: {}", e);
+            format!("Client build failed: {}", e)
+        })?;
 
     // Standard LibSQL/Turso HTTP API expects POST with JSON statements
     let query_body = serde_json::json!({
         "statements": ["SELECT 1"]
     });
 
+    log::info!("Sending validation request to: {}", http_url);
+
     let res = client.post(&http_url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
         .json(&query_body)
         .send()
-        .await
-        .map_err(|e| format!("Connection failed: {}", e))?;
+        .await;
 
-    if res.status() == reqwest::StatusCode::UNAUTHORIZED || res.status() == reqwest::StatusCode::FORBIDDEN {
+    let res = match res {
+        Ok(r) => {
+            log::info!("Request sent successfully");
+            r
+        }
+        Err(e) => {
+            log::error!("Request failed: {}", e);
+            return Err(format!("Connection failed: {}", e));
+        }
+    };
+
+    let status = res.status();
+    log::info!("Response status: {}", status);
+
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        log::error!("Authentication failed");
         return Err("Authentication failed (Invalid Token)".to_string());
     }
 
-    if !res.status().is_success() {
-         return Err(format!("Server returned error: {}", res.status()));
+    if !status.is_success() {
+        log::error!("Server returned error status: {}", status);
+        return Err(format!("Server returned error: {}", status));
     }
 
+    log::info!("Cloud connection validated successfully");
     Ok(())
 }
 

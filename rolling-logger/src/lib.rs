@@ -210,22 +210,35 @@ static GLOBAL_APPENDER: OnceLock<Arc<RollingFileAppender>> = OnceLock::new();
 
 /// Initialize the rolling logger with tracing subscriber
 pub fn init_logger(log_dir: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let appender = Arc::new(RollingFileAppender::new(log_dir)?);
-    
-    GLOBAL_APPENDER.set(appender.clone())
-        .map_err(|_| "Logger already initialized")?;
-    
-    // Create and set up the tracing subscriber
-    let file_layer = RollingFileLayer::new_with_appender(appender)?;
-    
-    tracing_subscriber::registry()
-        .with(file_layer)
-        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
-        .with(tracing_subscriber::filter::LevelFilter::INFO)
-        .init();
-    
-    tracing::info!("Rolling logger with tracing initialized");
-    Ok(())
+    #[cfg(target_os = "android")]
+    {
+        android_logger::init_once(
+            android_logger::Config::default()
+                .with_max_level(log::LevelFilter::Trace)
+                .with_tag("KeepAccounts"),
+        );
+        println!("Android logger initialized");
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let appender = Arc::new(RollingFileAppender::new(log_dir)?);
+
+        GLOBAL_APPENDER.set(appender.clone())
+            .map_err(|_| "Logger already initialized")?;
+
+        let file_layer = RollingFileLayer::new_with_appender(appender)?;
+
+        tracing_subscriber::registry()
+            .with(file_layer)
+            .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+            .with(tracing_subscriber::filter::LevelFilter::INFO)
+            .init();
+
+        tracing::info!("Rolling logger with tracing initialized");
+        Ok(())
+    }
 }
 
 impl RollingFileLayer {

@@ -203,7 +203,8 @@ async fn configure_sync(
     url: String,
     token: String,
 ) -> Result<(), String> {
-    // Validate connection before saving
+    log::info!("configure_sync called: url={}, token_len={}", url, token.len());
+
     if !url.is_empty() && !token.is_empty() {
         db::validate_cloud_connection(url.clone(), token.clone()).await
             .map_err(|e| format!("验证连接失败: {}", e))?;
@@ -262,29 +263,12 @@ pub fn run() {
                 .expect("Failed to get app local data dir")
                 .join("accounts.db");
 
-            #[cfg(target_os = "android")]
-            {
-                android_logger::init_once(
-                    android_logger::Config::default()
-                        .with_max_level(log::LevelFilter::Trace)
-                        .with_tag("KeepAccounts"),
-                );
-                eprintln!("Android logger initialized");
-            }
-
-            #[cfg(not(target_os = "android"))]
-            {
-                let log_path = app.path()
+            rolling_logger::init_logger(
+                app.path()
                     .app_local_data_dir()
-                    .expect("Failed to get app local data dir");
-
-                if let Err(e) = rolling_logger::init_logger(log_path.clone()) {
-                    eprintln!("Failed to init logger: {}", e);
-                } else {
-                    rolling_logger::info("Application started");
-                    eprintln!("Logger initialized at {:?}", log_path);
-                }
-            }
+                    .expect("Failed to get app local data dir"),
+            )?;
+            rolling_logger::info("Application started");
 
             let db_path_for_init = db_path.clone();
             
