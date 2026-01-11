@@ -19,6 +19,10 @@ pub struct SyncConfig {
 pub struct DbState {
     db: Arc<Mutex<Option<Arc<Database>>>>,
     conn: Arc<Mutex<Option<Connection>>>,
+    /// Whether cloud sync is enabled for this session
+    is_sync_enabled: Arc<Mutex<bool>>,
+    /// Current sync URL (for logging)
+    sync_url: Arc<Mutex<String>>,
 }
 
 impl DbState {
@@ -26,7 +30,25 @@ impl DbState {
         Self {
             db: Arc::new(Mutex::new(None)),
             conn: Arc::new(Mutex::new(None)),
+            is_sync_enabled: Arc::new(Mutex::new(false)),
+            sync_url: Arc::new(Mutex::new(String::new())),
         }
+    }
+
+    /// Check if cloud sync is enabled for this session
+    pub async fn is_cloud_sync_enabled(&self) -> bool {
+        *self.is_sync_enabled.lock().await
+    }
+
+    /// Set sync enabled status and URL
+    pub async fn set_sync_config(&self, enabled: bool, url: String) {
+        *self.is_sync_enabled.lock().await = enabled;
+        *self.sync_url.lock().await = url;
+    }
+
+    /// Get current sync URL
+    pub async fn get_sync_url(&self) -> String {
+        self.sync_url.lock().await.clone()
     }
 
     /// Get a connection, initializing if necessary
@@ -81,84 +103,181 @@ fn load_config(db_path: &PathBuf) -> Option<SyncConfig> {
     None
 }
 
+pub(crate) async fn validate_cloud_connection(url: String, token: String) -> Result<(), String> {
+    // Basic format check
+    if !url.starts_with("libsql://") && !url.starts_with("https://") {
+        return Err("URL must start with libsql:// or https://".to_string());
+    }
+
+    // Convert libsql:// to https:// for HTTP check
+    let http_url = if url.starts_with("libsql://") {
+        url.replace("libsql://", "https://")
+    } else {
+        url
+    };
+
+    // Use reqwest to check connectivity AND authentication
+    // We must send a query to trigger actual token validation.
+    // Just checking GET / might return 200 OK (welcome page) even with bad token.
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Client build failed: {}", e))?;
+
+    // Standard LibSQL/Turso HTTP API expects POST with JSON statements
+    let query_body = serde_json::json!({
+        "statements": ["SELECT 1"]
+    });
+
+    let res = client.post(&http_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&query_body)
+        .send()
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+
+    if res.status() == reqwest::StatusCode::UNAUTHORIZED || res.status() == reqwest::StatusCode::FORBIDDEN {
+        return Err("Authentication failed (Invalid Token)".to_string());
+    }
+
+    if !res.status().is_success() {
+         return Err(format!("Server returned error: {}", res.status()));
+    }
+
+    Ok(())
+}
+
 /// Initialize database with path
 pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
     let db_path_str = db_path.to_str().ok_or("Invalid DB path")?;
 
     let config = load_config(db_path);
 
-    let (db, conn) = if let Some(conf) = config {
-        // Cloud sync mode
-        let msg = format!("Initializing Synced DB: {}, token len: {}", conf.url, conf.token.len());
-        eprintln!("{}", msg);
-        let _ = rolling_logger::info(&msg);
-
-        async fn try_build_connect(path: &str, url: String, token: String) -> Result<(Database, Connection), String> {
-            let db = Builder::new_synced_database(path, url, token)
+    let (db, conn, is_cloud_sync, sync_url) = if let Some(conf) = config {
+        // Only use cloud sync if BOTH url and token are non-empty
+        if conf.url.is_empty() || conf.token.is_empty() {
+            eprintln!("Sync config has empty URL or token, falling back to local mode");
+            let db = Builder::new_local(db_path_str)
                 .build()
                 .await
-                .map_err(|e| format!("Build failed: {}", e))?;
-            let conn = db.connect().map_err(|e| format!("Connect failed: {}", e))?;
-            
-            // Force initial sync to detect conflicts immediately
-            db.sync().await.map_err(|e| format!("Initial sync failed: {}", e))?;
-            
-            Ok((db, conn))
-        }
+                .map_err(|e| format!("Failed to build local db: {}", e))?;
+            let conn = db.connect().map_err(|e| format!("Failed to connect: {}", e))?;
+            (db, conn, false, String::new())
+        } else {
+            // Cloud sync mode
+            let msg = format!("Initializing Synced DB: {}, token len: {}", conf.url, conf.token.len());
+            eprintln!("{}", msg);
+            let _ = rolling_logger::info(&msg);
 
-        match try_build_connect(db_path_str, conf.url.clone(), conf.token.clone()).await {
-            Ok(pair) => pair,
-            Err(e) => {
-                eprintln!("Synced DB init failed: {}", e);
-                
-                // Check for various sync conflict conditions
-                let should_recover = e.contains("local state is incorrect") 
-                    || e.contains("invalid local state") 
-                    || e.contains("server returned a conflict")
-                    || e.contains("Generation ID mismatch")
-                    || e.contains("mismatch")
-                    || e.contains("metadata file does not");
-                
-                eprintln!("Should auto-recover: {}", should_recover);
-                
-                if should_recover {
-                    eprintln!("Detected conflicting local DB state. Auto-recovering by wiping local DB...");
-                    
-                    // Backup conflicting database
-                    let conflict_path = db_path.with_extension("db.legacy");
-                    if conflict_path.exists() { 
-                        eprintln!("Removing old legacy backup: {:?}", conflict_path);
-                        let _ = std::fs::remove_file(&conflict_path); 
-                    }
-                    if let Err(e) = std::fs::rename(&db_path, &conflict_path) {
-                        eprintln!("Rename to legacy failed: {} - removing instead", e);
-                        let _ = std::fs::remove_file(&db_path);
-                    } else {
-                        eprintln!("Backed up old DB to: {:?}", conflict_path);
-                    }
-                    
-                    // Clean up sync metadata
-                    eprintln!("Cleaning up sync metadata...");
-                    let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
-                    let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
-                    
-                    let sync_dir = db_path.parent().unwrap().join(format!("{}-sync", db_path.file_name().unwrap().to_str().unwrap()));
-                    if sync_dir.exists() {
-                        eprintln!("Removing sync directory: {:?}", sync_dir);
-                        if sync_dir.is_dir() { 
-                            let _ = std::fs::remove_dir_all(&sync_dir); 
-                        } else { 
-                            let _ = std::fs::remove_file(&sync_dir); 
+            // Validate connection first!
+            let validation_result = validate_cloud_connection(conf.url.clone(), conf.token.clone()).await;
+
+            if let Err(e) = validation_result {
+                eprintln!("Cloud connection validation failed: {}", e);
+                eprintln!("Falling back to local mode due to invalid configuration.");
+                let db = Builder::new_local(db_path_str)
+                    .build()
+                    .await
+                    .map_err(|e| format!("Failed to build local db: {}", e))?;
+                let conn = db.connect().map_err(|e| format!("Failed to connect: {}", e))?;
+                (db, conn, false, String::new())
+            } else {
+                // Validation passed, try cloud connection
+                let sync_url = conf.url.clone();
+
+                async fn try_build_connect(path: &str, url: String, token: String) -> Result<(Database, Connection), String> {
+                    let db = Builder::new_synced_database(path, url, token)
+                        .build()
+                        .await
+                        .map_err(|e| format!("Build failed: {}", e))?;
+                    let conn = db.connect().map_err(|e| format!("Connect failed: {}", e))?;
+
+                    // Force initial sync to detect conflicts immediately
+                    db.sync().await.map_err(|e| format!("Initial sync failed: {}", e))?;
+
+                    Ok((db, conn))
+                }
+
+                let (db, conn, _success, _url) = match try_build_connect(db_path_str, conf.url.clone(), conf.token.clone()).await {
+                    Ok((db, conn)) => (db, conn, true, sync_url.clone()),
+                    Err(e) => {
+                        eprintln!("Synced DB init failed: {}", e);
+
+                        // Check for various sync conflict conditions
+                        let should_recover = e.contains("local state is incorrect")
+                            || e.contains("invalid local state")
+                            || e.contains("server returned a conflict")
+                            || e.contains("Generation ID mismatch")
+                            || e.contains("mismatch")
+                            || e.contains("metadata file does not");
+
+                        eprintln!("Should auto-recover: {}", should_recover);
+
+                        if should_recover {
+                            eprintln!("Detected conflicting local DB state. Auto-recovering by wiping local DB...");
+
+                            // Backup conflicting database
+                            let conflict_path = db_path.with_extension("db.legacy");
+                            if conflict_path.exists() {
+                                eprintln!("Removing old legacy backup: {:?}", conflict_path);
+                                let _ = std::fs::remove_file(&conflict_path);
+                            }
+                            if let Err(e) = std::fs::rename(&db_path, &conflict_path) {
+                                eprintln!("Rename to legacy failed: {} - removing instead", e);
+                                let _ = std::fs::remove_file(&db_path);
+                            } else {
+                                eprintln!("Backed up old DB to: {:?}", conflict_path);
+                            }
+
+                            // Clean up sync metadata
+                            eprintln!("Cleaning up sync metadata...");
+                            let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
+                            let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
+
+                            let sync_dir = db_path.parent().unwrap().join(format!("{}-sync", db_path.file_name().unwrap().to_str().unwrap()));
+                            if sync_dir.exists() {
+                                eprintln!("Removing sync directory: {:?}", sync_dir);
+                                if sync_dir.is_dir() {
+                                    let _ = std::fs::remove_dir_all(&sync_dir);
+                                } else {
+                                    let _ = std::fs::remove_file(&sync_dir);
+                                }
+                            }
+
+                            eprintln!("Retrying with clean state...");
+                            // Retry with clean state
+                            match try_build_connect(db_path_str, conf.url, conf.token).await {
+                                Ok((db, conn)) => (db, conn, true, sync_url.clone()),
+                                Err(e) => {
+                                     eprintln!("Retry failed after recovery: {}", e);
+                                     let _ = rolling_logger::error(&format!("Retry failed after recovery: {}", e));
+
+                                      eprintln!("Falling back to local mode...");
+                                      let db = Builder::new_local(db_path_str)
+                                        .build()
+                                        .await
+                                        .map_err(|e| format!("Failed to build local db: {}", e))?;
+                                      let conn = db.connect().map_err(|e| format!("Failed to connect: {}", e))?;
+                                      (db, conn, false, String::new())
+                                }
+                            }
+                        } else {
+                            eprintln!("Cloud init failed (non-recoverable): {}", e);
+                            let _ = rolling_logger::warn(&format!("Cloud init failed, falling back to local: {}", e));
+                            eprintln!("Falling back to local mode...");
+
+                            let db = Builder::new_local(db_path_str)
+                                .build()
+                                .await
+                                .map_err(|e| format!("Failed to build local db: {}", e))?;
+                            let conn = db.connect().map_err(|e| format!("Failed to connect: {}", e))?;
+                            (db, conn, false, String::new())
                         }
                     }
-                    
-                    eprintln!("Retrying with clean state...");
-                    // Retry with clean state
-                    try_build_connect(db_path_str, conf.url, conf.token).await
-                        .map_err(|e| format!("Retry failed: {}", e))?
-                } else {
-                    return Err(e);
-                }
+                };
+
+                (db, conn, true, _url)
             }
         }
     } else {
@@ -168,7 +287,7 @@ pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
             .await
             .map_err(|e| format!("Failed to build local db: {}", e))?;
         let conn = db.connect().map_err(|e| format!("Failed to connect: {}", e))?;
-        (db, conn)
+        (db, conn, false, String::new())
     };
 
     // Enable foreign keys
@@ -182,6 +301,7 @@ pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
     let state = DbState::new();
     *state.db.lock().await = Some(Arc::new(db));
     *state.conn.lock().await = Some(conn);
+    state.set_sync_config(is_cloud_sync, sync_url).await;
 
     Ok(state)
 }

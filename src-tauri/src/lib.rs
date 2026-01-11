@@ -203,6 +203,12 @@ async fn configure_sync(
     url: String,
     token: String,
 ) -> Result<(), String> {
+    // Validate connection before saving
+    if !url.is_empty() && !token.is_empty() {
+        db::validate_cloud_connection(url.clone(), token.clone()).await
+            .map_err(|e| format!("验证连接失败: {}", e))?;
+    }
+
     db::configure_sync(&state.db_path, url, token).await
 }
 
@@ -228,6 +234,18 @@ async fn migrate_from_legacy(
     db::migrate_from_legacy(&state.db_path, &conn).await
 }
 
+#[tauri::command]
+async fn is_cloud_sync_enabled(
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    Ok(state.db.is_cloud_sync_enabled().await)
+}
+
+#[tauri::command]
+async fn get_app_logs() -> Result<String, String> {
+    rolling_logger::read_logs()
+}
+
 // ============================================================================
 // Application Entry Point
 // ============================================================================
@@ -244,10 +262,27 @@ pub fn run() {
                 .expect("Failed to get app local data dir")
                 .join("accounts.db");
 
-            let log_path = app
-                .path()
-                .app_local_data_dir()
-                .expect("Failed to get app local data dir");
+            #[cfg(target_os = "android")]
+            {
+                android_logger::init_once(
+                    android_logger::Config::default()
+                        .with_max_level(log::LevelFilter::Trace)
+                        .with_tag("KeepAccounts"),
+                );
+            }
+
+            let log_path = {
+                #[cfg(target_os = "android")]
+                {
+                   PathBuf::from("/storage/emulated/0/Android/data/com.keep-accounts.app/files/logs")
+                }
+                #[cfg(not(target_os = "android"))]
+                {
+                    app.path()
+                        .app_local_data_dir()
+                        .expect("Failed to get app local data dir")
+                }
+            };
             
             if let Err(e) = rolling_logger::init_logger(log_path.clone()) {
                 eprintln!("Failed to init logger: {}", e);
@@ -334,8 +369,10 @@ pub fn run() {
             sync_database,
             configure_sync,
             get_sync_config,
+            is_cloud_sync_enabled,
             has_legacy_db,
             migrate_from_legacy,
+            get_app_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
