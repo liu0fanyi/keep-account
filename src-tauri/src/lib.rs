@@ -274,7 +274,9 @@ pub fn run() {
             let log_path = {
                 #[cfg(target_os = "android")]
                 {
-                   PathBuf::from("/storage/emulated/0/Android/data/com.keep-accounts.app/files/logs")
+                    app.path()
+                        .app_local_data_dir()
+                        .expect("Failed to get app local data dir")
                 }
                 #[cfg(not(target_os = "android"))]
                 {
@@ -283,12 +285,28 @@ pub fn run() {
                         .expect("Failed to get app local data dir")
                 }
             };
-            
+
+            // Also save logs to Download directory on Android (for easy access)
+            #[cfg(target_os = "android")]
+            let download_log_path = PathBuf::from("/storage/emulated/0/Download/keep-accounts.log");
+
             if let Err(e) = rolling_logger::init_logger(log_path.clone()) {
                 eprintln!("Failed to init logger: {}", e);
             } else {
                 rolling_logger::info("Application started");
                 eprintln!("Logger initialized at {:?}", log_path);
+
+                // Copy logs to Download directory on Android
+                #[cfg(target_os = "android")]
+                {
+                    if let Ok(log_content) = rolling_logger::read_logs() {
+                        if let Err(e) = std::fs::write(&download_log_path, log_content) {
+                            eprintln!("Failed to copy logs to Download: {}", e);
+                        } else {
+                            eprintln!("Logs also saved to: {:?}", download_log_path);
+                        }
+                    }
+                }
             }
 
             let db_path_for_init = db_path.clone();
