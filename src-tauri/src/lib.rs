@@ -244,6 +244,18 @@ pub fn run() {
                 .expect("Failed to get app local data dir")
                 .join("accounts.db");
 
+            let log_path = app
+                .path()
+                .app_local_data_dir()
+                .expect("Failed to get app local data dir");
+            
+            if let Err(e) = rolling_logger::init_logger(log_path.clone()) {
+                eprintln!("Failed to init logger: {}", e);
+            } else {
+                rolling_logger::info("Application started");
+                eprintln!("Logger initialized at {:?}", log_path);
+            }
+
             let db_path_for_init = db_path.clone();
             
             // Initialize database synchronously

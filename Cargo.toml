@@ -32,13 +32,17 @@ console_error_panic_hook = "0.1.7"
 chrono = "0.4"
 
 [workspace]
-members = ["src-tauri"]
+members = ["src-tauri", "rolling-logger"]
 
 [workspace.dependencies]
 # Tauri dependencies
 tauri = { version = "2", features = [] }
 tauri-build = "2"
 tauri-plugin-shell = "2"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tempfile = "3"
 
 # Leptos dependencies
 leptos = { version = "0.8", features = ["csr"] }

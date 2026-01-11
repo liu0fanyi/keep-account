@@ -89,7 +89,9 @@ pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
 
     let (db, conn) = if let Some(conf) = config {
         // Cloud sync mode
-        eprintln!("Initializing Synced DB: {}, token len: {}", conf.url, conf.token.len());
+        let msg = format!("Initializing Synced DB: {}, token len: {}", conf.url, conf.token.len());
+        eprintln!("{}", msg);
+        let _ = rolling_logger::info(&msg);
 
         async fn try_build_connect(path: &str, url: String, token: String) -> Result<(Database, Connection), String> {
             let db = Builder::new_synced_database(path, url, token)
@@ -325,12 +327,17 @@ async fn run_migrations(conn: &Connection) -> Result<(), String> {
 
 /// Configure cloud sync with Turso database
 pub async fn configure_sync(db_path: &PathBuf, url: String, token: String) -> Result<(), String> {
+    let _ = rolling_logger::info(&format!("Configuring sync with URL: {}", url));
     let config = SyncConfig { url, token };
     let config_path = get_config_path(db_path);
     std::fs::write(config_path, serde_json::to_string(&config).unwrap())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            let _ = rolling_logger::error(&format!("Failed to write sync config: {}", e));
+            e.to_string()
+        })?;
 
     eprintln!("Sync config saved");
+    let _ = rolling_logger::info("Sync config saved successfully");
     Ok(())
 }
 
