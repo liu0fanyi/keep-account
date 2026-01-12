@@ -58,3 +58,4 @@ serde-wasm-bindgen = "0.6"
 libsql = { version = "0.9", features = ["sync"] }
 tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
