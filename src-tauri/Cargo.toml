@@ -19,7 +19,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 rolling-logger = { path = "../rolling-logger" }
 log = "0.4"
-android_logger = "0.13"
 
 # Async support
 tokio = { workspace = true }
@@ -29,5 +28,5 @@ libsql = { workspace = true }
 chrono = { workspace = true }
 
 # HTTP client for cloud connection validation
-reqwest = { version = "0.13", features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-tls"] }
 
