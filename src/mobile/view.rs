@@ -5,7 +5,7 @@ use leptos::task::spawn_local;
 use wasm_bindgen::JsCast;
 
 use crate::types::{Category, TransactionWithCategory, InstallmentWithCategory};
-use crate::api::{invoke, JsValue};
+use crate::api::JsValue;
 
 pub use super::nav::{MobileView, MobileBottomNav};
 pub use super::list::MobileTransactionList;
@@ -35,9 +35,10 @@ pub fn MobileTransactionView(
     // 加载分类列表
     let load_categories = move || {
         spawn_local(async move {
-            let result = invoke("get_categories", JsValue::NULL).await;
-            if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
-                set_categories.set(cats);
+            if let Ok(result) = crate::api::invoke_safe("get_categories", JsValue::NULL).await {
+                if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
+                    set_categories.set(cats);
+                }
             }
         });
     };
@@ -48,25 +49,49 @@ pub fn MobileTransactionView(
         let month = selected_month.get_untracked();
         
         spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                "year": year,
-                "month": month,
-            })).unwrap();
+
+            let load_fn = move || {
+                let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                    "year": year,
+                    "month": month,
+                })).unwrap();
+                spawn_local(async move {
+                    if let Ok(result) = crate::api::invoke_safe("get_transactions_by_month", args).await {
+                        if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result) {
+                            transactions.set(txs);
+                        }
+                    }
+                });
+            };
             
-            let result = invoke("get_transactions_by_month", args).await;
-            if let Ok(txs) = serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result) {
-                transactions.set(txs);
-            }
+            // Initial load
+            load_fn();
+            
+            // Listen
+             let _ = crate::api::listen_safe("db-initialized", move |_| {
+                load_fn();
+            }).await;
         });
     };
     
     // 加载分期列表
     let load_installments = move || {
         spawn_local(async move {
-            let result = invoke("get_installments", JsValue::NULL).await;
-            if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result) {
-                installments.set(items);
-            }
+            let load_fn = move || {
+                spawn_local(async move {
+                    if let Ok(result) = crate::api::invoke_safe("get_installments", JsValue::NULL).await {
+                        if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result) {
+                            installments.set(items);
+                        }
+                    }
+                });
+            };
+            
+            load_fn();
+            
+            let _ = crate::api::listen_safe("db-initialized", move |_| {
+                load_fn();
+            }).await;
         });
     };
     
@@ -193,11 +218,12 @@ pub fn MobileTransactionView(
                                                             let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                                                                 "id": cat_id
                                                             })).unwrap();
-                                                            let _result = invoke("delete_category", args).await;
+                                                            let _ = crate::api::invoke_safe("delete_category", args).await;
                                                             // Reload categories
-                                                            let result = invoke("get_categories", JsValue::NULL).await;
-                                                            if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
-                                                                set_categories.set(cats);
+                                                            if let Ok(result) = crate::api::invoke_safe("get_categories", JsValue::NULL).await {
+                                                                if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
+                                                                    set_categories.set(cats);
+                                                                }
                                                             }
                                                         });
                                                     }
@@ -274,11 +300,12 @@ pub fn MobileTransactionView(
                                                                                 let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                                                                                     "id": item_id
                                                                                 })).unwrap();
-                                                                                let _ = invoke("delete_installment", args).await;
+                                                                                let _ = crate::api::invoke_safe("delete_installment", args).await;
                                                                                 // Reload installments
-                                                                                let result = invoke("get_installments", JsValue::NULL).await;
-                                                                                if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result) {
-                                                                                    installments.set(items);
+                                                                                if let Ok(result) = crate::api::invoke_safe("get_installments", JsValue::NULL).await {
+                                                                                    if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result) {
+                                                                                        installments.set(items);
+                                                                                    }
                                                                                 }
                                                                             });
                                                                         }

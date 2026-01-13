@@ -3,7 +3,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::api::invoke;
+// invoke removed
 use crate::types::Category;
 
 /// 移动端新增分期表单 - 与记账表单对齐的UI
@@ -101,8 +101,12 @@ pub fn MobileInstallmentForm(
                 "note": if note_val.is_empty() { None::<String> } else { Some(note_val) },
             })).unwrap();
             
-            let _result = invoke("create_installment", args).await;
-            on_success();
+            match crate::api::invoke_safe("create_installment", args).await {
+                Ok(_) => on_success(),
+                Err(e) => {
+                     error_message.set(format!("创建失败: {}", e));
+                }
+            }
         });
     };
 

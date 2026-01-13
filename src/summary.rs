@@ -3,7 +3,7 @@ use leptos::task::spawn_local;
 
 // Import shared types and API
 use crate::types::{Category, TransactionWithCategory, InstallmentDetail};
-use crate::api::{invoke, JsValue};
+use crate::api::JsValue;
 
 
 
@@ -46,25 +46,32 @@ pub fn SummaryView(
 
             spawn_local(async move {
                 // Get all transactions
-                let tx_result = invoke("get_transactions", JsValue::NULL).await;
+                let tx_result = match crate::api::invoke_safe("get_transactions", JsValue::NULL).await {
+                    Ok(res) => res,
+                    Err(_) => return, // Fail silently/gracefully if DB not ready
+                };
                 let txs: Vec<TransactionWithCategory> = serde_wasm_bindgen::from_value(tx_result).unwrap_or_default();
                 set_all_transactions.set(txs.clone());
                 
                 // Get all installment details
-                let inst_result = invoke("get_installments", JsValue::NULL).await;
                 let mut all_installment_details: Vec<InstallmentDetail> = Vec::new();
-                
-                if let Ok(installments) = serde_wasm_bindgen::from_value::<Vec<crate::types::InstallmentWithCategory>>(inst_result) {
-                    for inst in installments {
-                        let args = serde_wasm_bindgen::to_value(&serde_json::json!({
-                            "installmentId": inst.id
-                        })).unwrap();
-                        let details_result = invoke("get_installment_details", args).await;
-                        if let Ok(details) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(details_result) {
-                            all_installment_details.extend(details);
+
+                if let Ok(inst_result) = crate::api::invoke_safe("get_installments", JsValue::NULL).await {
+                    if let Ok(installments) = serde_wasm_bindgen::from_value::<Vec<crate::types::InstallmentWithCategory>>(inst_result) {
+                        for inst in installments {
+                            let args = serde_wasm_bindgen::to_value(&serde_json::json!({
+                                "installmentId": inst.id
+                            })).unwrap();
+                            
+                            if let Ok(details_result) = crate::api::invoke_safe("get_installment_details", args).await {
+                                if let Ok(details) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(details_result) {
+                                    all_installment_details.extend(details);
+                                }
+                            }
                         }
                     }
                 }
+
 
                 // Group by month
                 let mut month_map: std::collections::HashMap<(i32, i32), MonthGroup> = std::collections::HashMap::new();

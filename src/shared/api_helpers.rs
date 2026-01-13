@@ -1,12 +1,12 @@
 //! API helper functions to reduce boilerplate in components.
 
 use leptos::task::spawn_local;
-use crate::api::{invoke, JsValue};
+use crate::api::{invoke_safe, JsValue};
 use crate::types::{Category, TransactionWithCategory, MonthlySummary, InstallmentWithCategory, InstallmentDetail};
 
 /// Load categories from backend
 pub async fn fetch_categories() -> Result<Vec<Category>, String> {
-    let result = invoke("get_categories", JsValue::NULL).await;
+    let result = invoke_safe("get_categories", JsValue::NULL).await?;
     serde_wasm_bindgen::from_value::<Vec<Category>>(result)
         .map_err(|e| format!("Failed to parse categories: {:?}", e))
 }
@@ -18,7 +18,7 @@ pub async fn fetch_transactions(year: i32, month: i32) -> Result<Vec<Transaction
         "month": month,
     })).map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let result = invoke("get_transactions_by_month", args).await;
+    let result = invoke_safe("get_transactions_by_month", args).await?;
     serde_wasm_bindgen::from_value::<Vec<TransactionWithCategory>>(result)
         .map_err(|e| format!("Failed to parse transactions: {:?}", e))
 }
@@ -30,7 +30,7 @@ pub async fn fetch_monthly_summary(year: i32, month: i32) -> Result<MonthlySumma
         "month": month,
     })).map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let result = invoke("get_monthly_summary", args).await;
+    let result = invoke_safe("get_monthly_summary", args).await?;
     serde_wasm_bindgen::from_value::<MonthlySummary>(result)
         .map_err(|e| format!("Failed to parse summary: {:?}", e))
 }
@@ -49,14 +49,7 @@ pub async fn create_transaction(
         "note": note,
     })).map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let result = invoke("create_transaction", args).await;
-    
-    // Check if result contains error
-    if let Some(error) = result.as_string() {
-        if error.contains("Error") || error.contains("error") {
-            return Err(error);
-        }
-    }
+    let _ = invoke_safe("create_transaction", args).await?;
     Ok(())
 }
 
@@ -67,7 +60,7 @@ pub async fn create_category(name: &str, icon: &str) -> Result<Category, String>
         "icon": icon,
     })).map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let result = invoke("create_category", args).await;
+    let result = invoke_safe("create_category", args).await?;
     serde_wasm_bindgen::from_value::<Category>(result)
         .map_err(|e| format!("Failed to parse category: {:?}", e))
 }
@@ -77,7 +70,7 @@ pub async fn delete_category(id: i64) -> Result<(), String> {
     let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "id": id }))
         .map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let _ = invoke("delete_category", args).await;
+    let _ = invoke_safe("delete_category", args).await?;
     Ok(())
 }
 
@@ -86,13 +79,13 @@ pub async fn delete_transaction(id: i64) -> Result<(), String> {
     let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "id": id }))
         .map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let _ = invoke("delete_transaction", args).await;
+    let _ = invoke_safe("delete_transaction", args).await?;
     Ok(())
 }
 
 /// Load all installments
 pub async fn fetch_installments() -> Result<Vec<InstallmentWithCategory>, String> {
-    let result = invoke("get_installments", JsValue::NULL).await;
+    let result = invoke_safe("get_installments", JsValue::NULL).await?;
     serde_wasm_bindgen::from_value::<Vec<InstallmentWithCategory>>(result)
         .map_err(|e| format!("Failed to parse installments: {:?}", e))
 }
@@ -104,7 +97,7 @@ pub async fn fetch_due_installments(year: i32, month: u32) -> Result<Vec<Install
         "month": month,
     })).map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let result = invoke("get_due_installments_by_month", args).await;
+    let result = invoke_safe("get_due_installments_by_month", args).await?;
     serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(result)
         .map_err(|e| format!("Failed to parse installment details: {:?}", e))
 }
@@ -125,7 +118,7 @@ pub async fn create_installment(
         "note": note,
     })).map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let _ = invoke("create_installment", args).await;
+    let _ = invoke_safe("create_installment", args).await?;
     Ok(())
 }
 
@@ -134,7 +127,7 @@ pub async fn delete_installment(id: i64) -> Result<(), String> {
     let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "id": id }))
         .map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let _ = invoke("delete_installment", args).await;
+    let _ = invoke_safe("delete_installment", args).await?;
     Ok(())
 }
 
@@ -143,7 +136,7 @@ pub async fn fetch_installment_details(installment_id: i64) -> Result<Vec<Instal
     let args = serde_wasm_bindgen::to_value(&serde_json::json!({ "installmentId": installment_id }))
         .map_err(|e| format!("Failed to serialize args: {:?}", e))?;
     
-    let result = invoke("get_installment_details", args).await;
+    let result = invoke_safe("get_installment_details", args).await?;
     serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(result)
         .map_err(|e| format!("Failed to parse installment details: {:?}", e))
 }

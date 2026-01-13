@@ -18,6 +18,7 @@ pub struct SyncConfig {
 }
 
 /// Database state wrapper
+#[derive(Clone)]
 pub struct DbState {
     db: Arc<Mutex<Option<Arc<Database>>>>,
     conn: Arc<Mutex<Option<Connection>>>,
@@ -179,8 +180,8 @@ pub(crate) async fn validate_cloud_connection(url: String, token: String) -> Res
     Ok(())
 }
 
-/// Initialize database with path
-pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
+/// Initialize database (async, populates existing state)
+pub async fn init_db(db_path: &PathBuf, state: Arc<DbState>) -> Result<(), String> {
     let db_path_str = db_path.to_str().ok_or("Invalid DB path")?;
 
     let config = load_config(db_path);
@@ -336,12 +337,12 @@ pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
     // Run migrations
     run_migrations(&conn).await?;
 
-    let state = DbState::new();
+    // Populate the existing state
     *state.db.lock().await = Some(Arc::new(db));
     *state.conn.lock().await = Some(conn);
     state.set_sync_config(is_cloud_sync, sync_url).await;
 
-    Ok(state)
+    Ok(())
 }
 
 /// Check if a column exists in a table

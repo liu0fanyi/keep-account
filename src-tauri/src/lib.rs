@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use tauri::State;
 use tauri::Manager;
+use tauri::Emitter;
 
 mod db;
 mod models;
@@ -263,6 +264,8 @@ pub fn run() {
                 .app_local_data_dir()
                 .expect("Failed to get app local data dir")
                 .join("accounts.db");
+            
+            let app_handle = app.handle().clone();
 
             rolling_logger::init_logger(
                 app.path()
@@ -273,26 +276,36 @@ pub fn run() {
 
             let db_path_for_init = db_path.clone();
             
-            // Initialize database synchronously
-            let db_state = tauri::async_runtime::block_on(async move {
-                eprintln!("Initializing database at: {:?}", db_path_for_init);
-                db::init_db(&db_path_for_init).await
+            // Create initial empty state
+            let db_state = db::DbState::new();
+            
+            // Manage state IMMEDIATELY so app doesn't panic
+            // DbState is now Clone (holding Arcs), so we can clone it cheaply
+            app.manage(AppState { 
+                db: db_state.clone(), 
+                db_path: db_path.clone() 
             });
 
-            let db_state = match db_state {
-                Ok(state) => {
-                    eprintln!("Database initialized successfully");
-                    state
+            // Initialize database asynchronously in bg
+            // This prevents blocking main thread on Android (NetworkOnMainThreadException)
+            // and ensures command state is managed before commands are invoked.
+            let init_state = std::sync::Arc::new(db_state.clone());
+            
+            tauri::async_runtime::spawn(async move {
+                eprintln!("Initializing database asynchronously at: {:?}", db_path_for_init);
+                if let Err(e) = db::init_db(&db_path_for_init, init_state).await {
+                    eprintln!("Failed to initialize database (async): {}", e);
+                    let _ = rolling_logger::error(&format!("Async DB init failed: {}", e));
+                } else {
+                    eprintln!("Database initialized successfully (async)");
+                    let _ = rolling_logger::info("Async DB init success");
+                    
+                    if let Err(e) = app_handle.emit("db-initialized", ()) {
+                        eprintln!("Failed to emit event: {}", e);
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Failed to initialize database: {}", e);
-                    return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn std::error::Error>);
-                }
-            };
-
-            // Manage database state
-            app.manage(AppState { db: db_state, db_path });
-
+            });
+            
 
             // Set window size based on monitor DPI (desktop only)
             // Phone screen: 2400x1080 (height x width) = aspect ratio 2.22:1

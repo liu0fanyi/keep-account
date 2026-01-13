@@ -4,7 +4,7 @@ use chrono::Datelike;
 
 // Import shared types and API
 use crate::types::Category;
-use crate::api::{invoke, JsValue};
+use crate::api::JsValue;
 use crate::components::{CategoryManager, DesktopTransactionView, InstallmentManager};
 
 
@@ -32,12 +32,25 @@ pub fn App() -> impl IntoView {
     let load_categories = {
         let set_categories = set_categories.clone();
         move || {
-            let set_categories = set_categories.clone();
+            let load_categories_fn = move || {
+                let set_cats = set_categories.clone();
+                spawn_local(async move {
+                     if let Ok(result) = crate::api::invoke_safe("get_categories", JsValue::NULL).await {
+                        if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
+                            set_cats.set(cats);
+                        }
+                    }
+                });
+            };
+            
+            // Initial load
+            load_categories_fn();
+
+            // Listen for DB ready event
             spawn_local(async move {
-                let result = invoke("get_categories", JsValue::NULL).await;
-                if let Ok(cats) = serde_wasm_bindgen::from_value::<Vec<Category>>(result) {
-                    set_categories.set(cats);
-                }
+                let _ = crate::api::listen_safe("db-initialized", move |_| {
+                    load_categories_fn();
+                }).await;
             });
         }
     };

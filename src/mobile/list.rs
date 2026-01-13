@@ -5,7 +5,7 @@ use leptos::task::spawn_local;
 
 use crate::types::{TransactionWithCategory, InstallmentDetail};
 use crate::shared::{delete_transaction, fetch_transactions, DEFAULT_ICON};
-use crate::api::{invoke, JsValue};
+use crate::api::JsValue;
 
 /// 移动端交易列表
 #[component]
@@ -30,9 +30,10 @@ pub fn MobileTransactionList(
                 "month": month,
             })).unwrap();
             
-            let result = invoke("get_due_installments_by_month", args).await;
-            if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(result) {
-                due_installments.set(items);
+            if let Ok(result) = crate::api::invoke_safe("get_due_installments_by_month", args).await {
+                if let Ok(items) = serde_wasm_bindgen::from_value::<Vec<InstallmentDetail>>(result) {
+                    due_installments.set(items);
+                }
             }
         });
     };
