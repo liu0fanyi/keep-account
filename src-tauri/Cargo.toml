@@ -30,5 +30,8 @@ chrono = { workspace = true }
 
 # HTTP client for cloud connection validation
 # HTTP client for cloud connection validation
+# HTTP client for cloud connection validation
 tauri-plugin-http = "2"
+hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"] }
+hyper-rustls = { version = "0.25", features = ["http1", "http2", "webpki-tokio", "tls12"] }
 

@@ -218,7 +218,14 @@ pub async fn init_db(db_path: &PathBuf) -> Result<DbState, String> {
                 let sync_url = conf.url.clone();
 
                 async fn try_build_connect(path: &str, url: String, token: String) -> Result<(Database, Connection), String> {
+                    let https = hyper_rustls::HttpsConnectorBuilder::new()
+                        .with_webpki_roots()
+                        .https_or_http()
+                        .enable_http1()
+                        .build();
+
                     let db = Builder::new_synced_database(path, url, token)
+                        .connector(https)
                         .build()
                         .await
                         .map_err(|e| format!("Build failed: {}", e))?;

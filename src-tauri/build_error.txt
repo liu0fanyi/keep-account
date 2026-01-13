@@ -1,0 +1,173 @@
+    Checking keep-accounts v0.1.0 (D:\tag_all\project\tauri-apps\keep-accounts\src-tauri)
+warning: unused import: `crate::db::DbState`
+ --> src-tauri\src\repository\category_repo.rs:5:5
+  |
+5 | use crate::db::DbState;
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `crate::db::DbState`
+ --> src-tauri\src\repository\installment_repo.rs:5:5
+  |
+5 | use crate::db::DbState;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::db::DbState`
+ --> src-tauri\src\repository\transaction_repo.rs:5:5
+  |
+5 | use crate::db::DbState;
+  |     ^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `json` found for struct `RequestBuilder` in the current scope
+   --> src-tauri\src\db.rs:148:10
+    |
+145 |       let res = client.post(&http_url)
+    |  _______________-
+146 | |         .header("Authorization", format!("Bearer {}", token))
+147 | |         .header("Content-Type", "application/json")
+148 | |         .json(&query_body)
+    | |         -^^^^ method not found in `RequestBuilder`
+    | |_________|
+    |
+
+error[E0282]: type annotations needed
+   --> src-tauri\src\db.rs:152:9
+    |
+152 |     let res = match res {
+    |         ^^^
+...
+163 |     let status = res.status();
+    |                  --- type must be known at this point
+    |
+help: consider giving `res` an explicit type
+    |
+152 |     let res: /* Type */ = match res {
+    |            ++++++++++++
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:528:9
+    |
+528 |     let mut cat_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:549:9
+    |
+549 |     let mut tx_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:571:9
+    |
+571 |     let mut inst_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:594:9
+    |
+594 |     let mut detail_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\category_repo.rs:29:9
+   |
+29 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\category_repo.rs:54:9
+   |
+54 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\installment_repo.rs:98:9
+   |
+98 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\installment_repo.rs:130:9
+    |
+130 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\installment_repo.rs:166:9
+    |
+166 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\installment_repo.rs:210:9
+    |
+210 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\transaction_repo.rs:34:9
+   |
+34 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\transaction_repo.rs:63:9
+   |
+63 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\transaction_repo.rs:93:9
+   |
+93 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\transaction_repo.rs:135:9
+    |
+135 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\transaction_repo.rs:189:9
+    |
+189 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+Some errors have detailed explanations: E0282, E0599.
+For more information about an error, try `rustc --explain E0282`.
+warning: `keep-accounts` (lib) generated 18 warnings
+error: could not compile `keep-accounts` (lib) due to 2 previous errors; 18 warnings emitted
