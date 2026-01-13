@@ -29,5 +29,6 @@ libsql = { workspace = true }
 chrono = { workspace = true }
 
 # HTTP client for cloud connection validation
-reqwest = { version = "0.13", features = ["json"] }
+# HTTP client for cloud connection validation
+tauri-plugin-http = "2"
 

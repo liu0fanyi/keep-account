@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
+use tauri_plugin_http::reqwest;
+
 /// Sync configuration for Turso cloud database
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SyncConfig {
@@ -140,10 +142,12 @@ pub(crate) async fn validate_cloud_connection(url: String, token: String) -> Res
 
     log::info!("Sending validation request to: {}", http_url);
 
+    let body_str = serde_json::to_string(&query_body).map_err(|e| e.to_string())?;
+
     let res = client.post(&http_url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
-        .json(&query_body)
+        .body(body_str)
         .send()
         .await;
 

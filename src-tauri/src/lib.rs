@@ -255,6 +255,7 @@ async fn get_app_logs() -> Result<String, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             // Get database path
             let db_path = app
