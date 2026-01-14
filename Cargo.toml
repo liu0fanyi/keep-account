@@ -29,7 +29,7 @@ serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1.7"
 
 # Shared sync UI components (WASM only)
-tauri-sync-db-frontend = { path = "../crates/tauri-sync-db-frontend" }
+tauri-sync-db-frontend = { git = "https://github.com/liu0fanyi/tauri-crates.git" }
 
 # Date/time
 chrono = "0.4"

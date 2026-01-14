@@ -17,7 +17,7 @@ tauri = { workspace = true }
 tauri-plugin-shell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-rolling-logger = { path = "../../crates/rolling-logger" }
+rolling-logger = { git = "https://github.com/liu0fanyi/tauri-crates.git" }
 log = "0.4"
 android_logger = "0.13"
 
@@ -25,7 +25,7 @@ android_logger = "0.13"
 tokio = { workspace = true }
 
 # Database (now using shared sync crate)
-tauri-sync-db-backend = { path = "../../crates/tauri-sync-db-backend" }
+tauri-sync-db-backend = { git = "https://github.com/liu0fanyi/tauri-crates.git" }
 libsql = { workspace = true }
 chrono = { workspace = true }
 
