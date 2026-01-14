@@ -12,7 +12,7 @@ pub use super::list::MobileTransactionList;
 pub use super::form::MobileTransactionForm;
 pub use super::category_form::MobileCategoryForm;
 pub use super::installment_form::MobileInstallmentForm;
-pub use super::sync_settings::SyncSettingsForm;
+pub use super::SyncSettingsForm;
 /// 移动端记账组件
 #[component]
 pub fn MobileTransactionView(
@@ -158,6 +158,7 @@ pub fn MobileTransactionView(
             {move || {
                 let view_type = current_view.get();
                 view! {
+                    <>
                     <Show when=move || view_type == MobileView::Form fallback=|| ()>
                         <div style="height: 100vh;">
                             <MobileTransactionForm
@@ -373,6 +374,7 @@ pub fn MobileTransactionView(
                             <MobileBottomNav current_view=current_view />
                         </div>
                     </Show>
+                    </>
                 }
             }}
         </div>

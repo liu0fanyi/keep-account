@@ -24,7 +24,8 @@ android_logger = "0.13"
 # Async support
 tokio = { workspace = true }
 
-# Database (libsql for Turso cloud sync support)
+# Database (now using shared sync crate)
+tauri-sync-db-backend = { path = "../../crates/tauri-sync-db-backend" }
 libsql = { workspace = true }
 chrono = { workspace = true }
 

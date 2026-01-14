@@ -5,7 +5,6 @@ mod list;
 mod form;
 mod category_form;
 mod installment_form;
-mod sync_settings;
 mod view;
 
 pub use nav::{MobileView, MobileBottomNav};
@@ -13,6 +12,8 @@ pub use list::MobileTransactionList;
 pub use form::MobileTransactionForm;
 pub use category_form::MobileCategoryForm;
 pub use installment_form::MobileInstallmentForm;
-pub use sync_settings::SyncSettingsForm;
 pub use view::MobileTransactionView;
+
+// Import shared sync settings form from frontend crate
+pub use tauri_sync_db_frontend::mobile::SyncSettingsForm;
 

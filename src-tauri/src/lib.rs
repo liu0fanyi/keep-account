@@ -265,6 +265,8 @@ pub fn run() {
                 .expect("Failed to get app local data dir")
                 .join("accounts.db");
             
+            eprintln!("Database path: {:?}", db_path);
+            
             let app_handle = app.handle().clone();
 
             rolling_logger::init_logger(
@@ -273,35 +275,38 @@ pub fn run() {
                     .expect("Failed to get app local data dir"),
             )?;
             rolling_logger::info("Application started");
-
+            
             let db_path_for_init = db_path.clone();
             
-            // Create initial empty state
+            // Create initial empty state (for immediate command usage)
             let db_state = db::DbState::new();
             
             // Manage state IMMEDIATELY so app doesn't panic
-            // DbState is now Clone (holding Arcs), so we can clone it cheaply
             app.manage(AppState { 
-                db: db_state.clone(), 
+                db: db_state.clone(), // Clone the DbState so we can update it later
                 db_path: db_path.clone() 
             });
 
             // Initialize database asynchronously in bg
-            // This prevents blocking main thread on Android (NetworkOnMainThreadException)
-            // and ensures command state is managed before commands are invoked.
-            let init_state = std::sync::Arc::new(db_state.clone());
-            
             tauri::async_runtime::spawn(async move {
                 eprintln!("Initializing database asynchronously at: {:?}", db_path_for_init);
-                if let Err(e) = db::init_db(&db_path_for_init, init_state).await {
-                    eprintln!("Failed to initialize database (async): {}", e);
-                    let _ = rolling_logger::error(&format!("Async DB init failed: {}", e));
-                } else {
-                    eprintln!("Database initialized successfully (async)");
-                    let _ = rolling_logger::info("Async DB init success");
-                    
-                    if let Err(e) = app_handle.emit("db-initialized", ()) {
-                        eprintln!("Failed to emit event: {}", e);
+                match db::init_db(&db_path_for_init).await {
+                    Ok(initialized_state) => {
+                        eprintln!("Database initialized successfully (async)");
+                        let _ = rolling_logger::info("Async DB init success");
+                        
+                        // Update the existing DbState with the initialized data
+                        eprintln!("Calling db_state.update_from...");
+                        db_state.update_from(&initialized_state).await;
+                        eprintln!("db_state.update_from completed successfully");
+                        
+                        if let Err(e) = app_handle.emit("db-initialized", ()) {
+                            eprintln!("Failed to emit event: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to initialize database (async): {}", e);
+                        let _ = rolling_logger::error(&format!("Async DB init failed: {}", e));
                     }
                 }
             });
@@ -309,6 +314,7 @@ pub fn run() {
 
             // Set window size based on monitor DPI (desktop only)
             // Phone screen: 2400x1080 (height x width) = aspect ratio 2.22:1
+
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(scale_factor) = window.scale_factor() {
