@@ -35,7 +35,7 @@ tauri-sync-db-frontend = { path = "../crates/tauri-sync-db-frontend" }
 chrono = "0.4"
 
 [workspace]
-members = ["src-tauri", "rolling-logger"]
+members = ["src-tauri"]
 
 [workspace.dependencies]
 # Tauri dependencies

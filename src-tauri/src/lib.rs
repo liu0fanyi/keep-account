@@ -273,6 +273,7 @@ pub fn run() {
                 app.path()
                     .app_local_data_dir()
                     .expect("Failed to get app local data dir"),
+                "KeepAccounts"
             )?;
             rolling_logger::info("Application started");
             
