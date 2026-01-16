@@ -1,0 +1,236 @@
+    Checking keep-accounts v0.1.0 (D:\tag_all\project\tauri-apps-v2\keep-accounts\src-tauri)
+warning: unused import: `std::sync::Arc`
+ --> src-tauri\src\db.rs:5:5
+  |
+5 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `tauri_plugin_http::reqwest`
+ --> src-tauri\src\db.rs:9:5
+  |
+9 | use tauri_plugin_http::reqwest;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::db::DbState`
+ --> src-tauri\src\repository\category_repo.rs:5:5
+  |
+5 | use crate::db::DbState;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::db::DbState`
+ --> src-tauri\src\repository\installment_repo.rs:5:5
+  |
+5 | use crate::db::DbState;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::db::DbState`
+ --> src-tauri\src\repository\transaction_repo.rs:5:5
+  |
+5 | use crate::db::DbState;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:220:9
+    |
+220 |     let mut cat_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:241:9
+    |
+241 |     let mut tx_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:263:9
+    |
+263 |     let mut inst_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\db.rs:286:9
+    |
+286 |     let mut detail_stmt = legacy_conn.prepare(
+    |         ----^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\category_repo.rs:29:9
+   |
+29 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\category_repo.rs:54:9
+   |
+54 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\installment_repo.rs:98:9
+   |
+98 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\installment_repo.rs:130:9
+    |
+130 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\installment_repo.rs:166:9
+    |
+166 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\installment_repo.rs:210:9
+    |
+210 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\transaction_repo.rs:34:9
+   |
+34 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\transaction_repo.rs:63:9
+   |
+63 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> src-tauri\src\repository\transaction_repo.rs:93:9
+   |
+93 |     let mut stmt = conn
+   |         ----^^^^
+   |         |
+   |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\transaction_repo.rs:135:9
+    |
+135 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src-tauri\src\repository\transaction_repo.rs:189:9
+    |
+189 |     let mut stmt = conn
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+error[E0277]: the trait bound `(std::string::String,): IntoParams` is not satisfied
+   --> src-tauri\src\lib.rs:283:9
+    |
+281 |     conn.execute(
+    |          ------- required by a bound introduced by this call
+282 |         "INSERT OR REPLACE INTO settings (key, value) VALUES ('baseline', ?)",
+283 |         (baseline.to_string(),),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^ the trait `IntoParams` is not implemented for `(std::string::String,)`
+    |
+    = help: the following other types implement trait `IntoParams`:
+              ((&str, A), (&str, B))
+              ((&str, A), (&str, B), (&str, C))
+              ((&str, A), (&str, B), (&str, C), (&str, D))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F), (&str, G))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F), (&str, G), (&str, H))
+              ((&str, A), (&str, B), (&str, C), (&str, D), ..., ..., ..., ..., ...)
+            and 23 others
+note: required by a bound in `Connection::execute`
+   --> C:\Users\liu_f\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsql-0.9.29\src\connection.rs:152:57
+    |
+152 |     pub async fn execute(&self, sql: &str, params: impl IntoParams) -> Result<u64> {
+    |                                                         ^^^^^^^^^^ required by this bound in `Connection::execute`
+    = note: the full name for the type has been written to 'D:\tag_all\project\tauri-apps-v2\keep-accounts\target\debug\deps\keep_accounts_lib-06f6c4ca19023bee.long-type-10559673542892783826.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the trait bound `(std::string::String,): IntoParams` is not satisfied
+   --> src-tauri\src\lib.rs:281:5
+    |
+281 | /     conn.execute(
+282 | |         "INSERT OR REPLACE INTO settings (key, value) VALUES ('baseline', ?)",
+283 | |         (baseline.to_string(),),
+284 | |     )
+    | |_____^ the trait `IntoParams` is not implemented for `(std::string::String,)`
+    |
+    = help: the following other types implement trait `IntoParams`:
+              ((&str, A), (&str, B))
+              ((&str, A), (&str, B), (&str, C))
+              ((&str, A), (&str, B), (&str, C), (&str, D))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F), (&str, G))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F), (&str, G), (&str, H))
+              ((&str, A), (&str, B), (&str, C), (&str, D), ..., ..., ..., ..., ...)
+            and 23 others
+note: required by a bound in `Connection::execute`
+   --> C:\Users\liu_f\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsql-0.9.29\src\connection.rs:152:57
+    |
+152 |     pub async fn execute(&self, sql: &str, params: impl IntoParams) -> Result<u64> {
+    |                                                         ^^^^^^^^^^ required by this bound in `Connection::execute`
+    = note: the full name for the type has been written to 'D:\tag_all\project\tauri-apps-v2\keep-accounts\target\debug\deps\keep_accounts_lib-06f6c4ca19023bee.long-type-10559673542892783826.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the trait bound `(std::string::String,): IntoParams` is not satisfied
+   --> src-tauri\src\lib.rs:285:6
+    |
+285 |     .await
+    |      ^^^^^ the trait `IntoParams` is not implemented for `(std::string::String,)`
+    |
+    = help: the following other types implement trait `IntoParams`:
+              ((&str, A), (&str, B))
+              ((&str, A), (&str, B), (&str, C))
+              ((&str, A), (&str, B), (&str, C), (&str, D))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F), (&str, G))
+              ((&str, A), (&str, B), (&str, C), (&str, D), (&str, E), (&str, F), (&str, G), (&str, H))
+              ((&str, A), (&str, B), (&str, C), (&str, D), ..., ..., ..., ..., ...)
+            and 23 others
+note: required by a bound in `Connection::execute`
+   --> C:\Users\liu_f\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libsql-0.9.29\src\connection.rs:152:57
+    |
+152 |     pub async fn execute(&self, sql: &str, params: impl IntoParams) -> Result<u64> {
+    |                                                         ^^^^^^^^^^ required by this bound in `Connection::execute`
+    = note: the full name for the type has been written to 'D:\tag_all\project\tauri-apps-v2\keep-accounts\target\debug\deps\keep_accounts_lib-06f6c4ca19023bee.long-type-10559673542892783826.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+For more information about this error, try `rustc --explain E0277`.
+warning: `keep-accounts` (lib) generated 20 warnings
+error: could not compile `keep-accounts` (lib) due to 3 previous errors; 20 warnings emitted

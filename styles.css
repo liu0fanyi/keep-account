@@ -1462,3 +1462,74 @@ select:focus {
     display: none;
   }
 }
+
+/* ============================================================================
+   Liquid Container Animation Styles
+   ============================================================================ */
+
+.liquid-container-wrapper {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth liquid fill animation */
+.liquid-fill {
+  transition: y 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Overflow drop animations */
+.overflow-drops {
+  animation: overflow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes overflow-pulse {
+
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: translateY(-3px);
+  }
+}
+
+.drop {
+  animation: drop-fall 2s ease-in infinite;
+}
+
+.drop-1 {
+  animation-delay: 0s;
+}
+
+.drop-2 {
+  animation-delay: 0.5s;
+}
+
+.drop-3 {
+  animation-delay: 1s;
+}
+
+@keyframes drop-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  20% {
+    opacity: 0.7;
+  }
+
+  80% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(400px);
+  }
+}

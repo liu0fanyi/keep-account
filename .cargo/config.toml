@@ -1,0 +1,7 @@
+# 本地开发配置：使用本地 crates 替代 git URL
+# 这个文件只在本地生效，推送到云端后会使用 Cargo.toml 中的 git URL
+
+[patch."https://github.com/liu0fanyi/tauri-crates.git"]
+tauri-sync-db-frontend = { path = "d:/tag_all/project/tauri-apps-v2/crates/tauri-sync-db-frontend" }
+tauri-sync-db-backend = { path = "d:/tag_all/project/tauri-apps-v2/crates/tauri-sync-db-backend" }
+rolling-logger = { path = "d:/tag_all/project/tauri-apps-v2/crates/rolling-logger" }

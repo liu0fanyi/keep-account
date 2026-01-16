@@ -143,6 +143,17 @@ async fn run_migrations(conn: &Connection) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?;
 
+    // Settings table (for baseline and other app settings)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+        (),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
     // Create indexes for better query performance
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date)",

@@ -249,6 +249,46 @@ async fn get_app_logs() -> Result<String, String> {
 }
 
 // ============================================================================
+// Settings Commands
+// ============================================================================
+
+#[tauri::command]
+async fn get_baseline(
+    state: State<'_, AppState>,
+) -> Result<Option<f64>, String> {
+    let conn = state.db.get_connection().await?;
+    let mut rows = conn.query("SELECT value FROM settings WHERE key = 'baseline'", ())
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    if let Ok(Some(row)) = rows.next().await {
+        if let Ok(value_str) = row.get::<String>(0) {
+            if let Ok(value) = value_str.parse::<f64>() {
+                return Ok(Some(value));
+            }
+        }
+    }
+    
+    Ok(None)
+}
+
+#[tauri::command]
+async fn set_baseline(
+    state: State<'_, AppState>,
+    baseline: f64,
+) -> Result<(), String> {
+    let conn = state.db.get_connection().await?;
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('baseline', ?)",
+        libsql::params![baseline.to_string()],
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+// ============================================================================
 // Application Entry Point
 // ============================================================================
 
@@ -373,6 +413,9 @@ pub fn run() {
             has_legacy_db,
             migrate_from_legacy,
             get_app_logs,
+            // Settings commands
+            get_baseline,
+            set_baseline,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
