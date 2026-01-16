@@ -18,27 +18,94 @@ pub fn LiquidContainer(
     // Load baseline on mount
     create_effect(move |_| {
         spawn_local(async move {
-            if let Ok(result) = crate::api::invoke_safe("get_baseline", wasm_bindgen::JsValue::NULL).await {
-                if let Ok(value) = serde_wasm_bindgen::from_value::<Option<f64>>(result) {
-                    set_baseline.set(value);
-                    set_show_input.set(value.is_none());
+            web_sys::console::log_1(&"Fetching baseline...".into());
+            match crate::api::invoke_safe("get_baseline", wasm_bindgen::JsValue::NULL).await {
+                Ok(result) => {
+                    web_sys::console::log_1(&format!("get_baseline result: {:?}", result).into());
+                    match serde_wasm_bindgen::from_value::<Option<f64>>(result) {
+                        Ok(value) => {
+                            web_sys::console::log_1(&format!("Parsed baseline value: {:?}", value).into());
+                            set_baseline.set(value);
+                            set_show_input.set(value.is_none());
+                        }
+                        Err(e) => {
+                            web_sys::console::error_1(&format!("Failed to parse baseline: {:?}", e).into());
+                        }
+                    }
+                }
+                Err(e) => {
+                    web_sys::console::error_1(&format!("Failed to fetch baseline: {:?}", e).into());
                 }
             }
         });
     });
+    
+    // Reload baseline when database initialization completes (after cloud sync)
+    create_effect(move |_| {
+        use wasm_bindgen::prelude::*;
+        use wasm_bindgen::JsCast;
+        
+        let load_baseline_fn = move || {
+            spawn_local(async move {
+                web_sys::console::log_1(&"[db-initialized event] Fetching baseline...".into());
+                match crate::api::invoke_safe("get_baseline", wasm_bindgen::JsValue::NULL).await {
+                    Ok(result) => {
+                        web_sys::console::log_1(&format!("[db-initialized event] get_baseline result: {:?}", result).into());
+                        match serde_wasm_bindgen::from_value::<Option<f64>>(result) {
+                            Ok(value) => {
+                                web_sys::console::log_1(&format!("[db-initialized event] Parsed baseline value: {:?}", value).into());
+                                set_baseline.set(value);
+                                set_show_input.set(value.is_none());
+                            }
+                            Err(e) => {
+                                web_sys::console::error_1(&format!("[db-initialized event] Failed to parse baseline: {:?}", e).into());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        web_sys::console::error_1(&format!("[db-initialized event] Failed to fetch baseline: {:?}", e).into());
+                    }
+                }
+            });
+        };
+        
+        let callback = Closure::wrap(Box::new(move |_event: web_sys::CustomEvent| {
+            web_sys::console::log_1(&"db-initialized event received!".into());
+            load_baseline_fn();
+        }) as Box<dyn FnMut(web_sys::CustomEvent)>);
+        
+        if let Some(window) = web_sys::window() {
+            let _ = window.add_event_listener_with_callback(
+                "db-initialized",
+                callback.as_ref().unchecked_ref()
+            );
+        }
+        
+        // Keep callback alive
+        callback.forget();
+    });
+
 
     // Save baseline
     let save_baseline = move || {
         let value = input_value.get_untracked();
+        web_sys::console::log_1(&format!("Saving baseline: {}", value).into());
         if let Ok(baseline_val) = value.parse::<f64>() {
             spawn_local(async move {
                 let args = serde_wasm_bindgen::to_value(&serde_json::json!({
                     "baseline": baseline_val
                 })).unwrap();
                 
-                if let Ok(_) = crate::api::invoke_safe("set_baseline", args).await {
-                    set_baseline.set(Some(baseline_val));
-                    set_show_input.set(false);
+                web_sys::console::log_1(&format!("Calling set_baseline with value: {}", baseline_val).into());
+                match crate::api::invoke_safe("set_baseline", args).await {
+                    Ok(_) => {
+                        web_sys::console::log_1(&"set_baseline succeeded".into());
+                        set_baseline.set(Some(baseline_val));
+                        set_show_input.set(false);
+                    }
+                    Err(e) => {
+                        web_sys::console::error_1(&format!("set_baseline failed: {:?}", e).into());
+                    }
                 }
             });
         }
